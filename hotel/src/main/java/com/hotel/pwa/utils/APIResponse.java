@@ -1,7 +1,7 @@
 package com.hotel.pwa.utils;
 
 import org.springframework.http.HttpStatus;
-
+//
 public class APIResponse {
     private String message;
     private Object data;

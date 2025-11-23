@@ -1,6 +1,7 @@
-package com.hotel.pwa.repository;
+package com.hotel.pwa.models.report;
 
-import com.hotel.pwa.entity.Report;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
+@Repository
 public interface ReportRepository extends JpaRepository<Report, Long> { }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/room-assignments")
 @AllArgsConstructor
 @CrossOrigin(origins = "*")
+//
 public class RoomAssignmentController {
 
     @Autowired
