@@ -1,5 +1,6 @@
 package com.hotel.pwa.models.room;
 
+import com.hotel.pwa.models.room.dto.RoomResponseDTO;
 import com.hotel.pwa.utils.APIResponse;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -20,8 +22,17 @@ public class RoomService {
 
     @Transactional(readOnly = true)
     public APIResponse findAll(){
-        List<Room> categories = roomRepository.findAll();
-        return new APIResponse("Operación exitosa", categories, false, HttpStatus.OK);
+        List<Room> rooms = roomRepository.findAll();
+        
+        List<RoomResponseDTO> responseDTOs = rooms.stream()
+                .map(room -> new RoomResponseDTO(
+                        room.getId(),
+                        room.getNumber(),
+                        room.getStatus()
+                ))
+                .collect(Collectors.toList());
+        
+        return new APIResponse("Operación exitosa", responseDTOs, false, HttpStatus.OK);
     }
 
     @Transactional(readOnly = true)
@@ -29,12 +40,19 @@ public class RoomService {
         try{
             Room found = roomRepository.findById(id).orElse(null);
             if (found == null){
-                return new APIResponse("Categoria no encontrada", true, HttpStatus.NOT_FOUND);
+                return new APIResponse("Habitación no encontrada", true, HttpStatus.NOT_FOUND);
             }
-            return new APIResponse("Operación exitosa", found, false, HttpStatus.OK);
+            
+            RoomResponseDTO responseDTO = new RoomResponseDTO(
+                    found.getId(),
+                    found.getNumber(),
+                    found.getStatus()
+            );
+            
+            return new APIResponse("Operación exitosa", responseDTO, false, HttpStatus.OK);
         }catch (Exception e) {
             e.printStackTrace();
-            return new APIResponse("No se puedo consultar la categoria", true, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new APIResponse("No se pudo consultar la habitación", true, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

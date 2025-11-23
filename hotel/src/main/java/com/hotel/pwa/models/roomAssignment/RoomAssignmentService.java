@@ -2,6 +2,7 @@ package com.hotel.pwa.models.roomAssignment;
 
 import com.hotel.pwa.models.room.Room;
 import com.hotel.pwa.models.room.RoomRepository;
+import com.hotel.pwa.models.roomAssignment.dto.RoomAssignmentResponseDTO;
 import com.hotel.pwa.models.user.UserRepository;
 import com.hotel.pwa.utils.APIResponse;
 import lombok.AllArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -31,7 +33,25 @@ public class RoomAssignmentService {
     @Transactional(readOnly = true)
     public APIResponse findAll(){
         List<RoomAssignment> assignments = roomAssignmentRepository.findAll();
-        return new APIResponse("Operación exitosa", assignments, false, HttpStatus.OK);
+        
+        List<RoomAssignmentResponseDTO> responseDTOs = assignments.stream()
+                .map(assignment -> new RoomAssignmentResponseDTO(
+                        assignment.getId(),
+                        assignment.getFechaAsignacion(),
+                        assignment.getUser() != null ? new RoomAssignmentResponseDTO.UserBasicDTO(
+                                assignment.getUser().getId(),
+                                assignment.getUser().getFullname(),
+                                assignment.getUser().getUsername()
+                        ) : null,
+                        assignment.getRoom() != null ? new RoomAssignmentResponseDTO.RoomBasicDTO(
+                                assignment.getRoom().getId(),
+                                assignment.getRoom().getNumber(),
+                                assignment.getRoom().getStatus()
+                        ) : null
+                ))
+                .collect(Collectors.toList());
+        
+        return new APIResponse("Operación exitosa", responseDTOs, false, HttpStatus.OK);
     }
 
     @Transactional(readOnly = true)
@@ -41,7 +61,23 @@ public class RoomAssignmentService {
             if (found == null){
                 return new APIResponse("Asignación no encontrada", true, HttpStatus.NOT_FOUND);
             }
-            return new APIResponse("Operación exitosa", found, false, HttpStatus.OK);
+            
+            RoomAssignmentResponseDTO responseDTO = new RoomAssignmentResponseDTO(
+                    found.getId(),
+                    found.getFechaAsignacion(),
+                    found.getUser() != null ? new RoomAssignmentResponseDTO.UserBasicDTO(
+                            found.getUser().getId(),
+                            found.getUser().getFullname(),
+                            found.getUser().getUsername()
+                    ) : null,
+                    found.getRoom() != null ? new RoomAssignmentResponseDTO.RoomBasicDTO(
+                            found.getRoom().getId(),
+                            found.getRoom().getNumber(),
+                            found.getRoom().getStatus()
+                    ) : null
+            );
+            
+            return new APIResponse("Operación exitosa", responseDTO, false, HttpStatus.OK);
         }catch (Exception e) {
             e.printStackTrace();
             return new APIResponse("No se pudo consultar la asignación", true, HttpStatus.INTERNAL_SERVER_ERROR);

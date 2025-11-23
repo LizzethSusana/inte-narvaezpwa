@@ -1,5 +1,6 @@
 package com.hotel.pwa.models.report;
 
+import com.hotel.pwa.models.report.dto.ReportResponseDTO;
 import com.hotel.pwa.utils.APIResponse;
 import com.hotel.pwa.utils.FileService;
 import lombok.AllArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -27,19 +29,31 @@ public class ReportService {
     @Transactional(readOnly = true)
     public APIResponse findAll(){
         List<Report> reports = reportRepository.findAll();
-        // Generar URL completa para cada imagen
-        reports.forEach(report -> {
-            if (report.getPhoto1() != null && !report.getPhoto1().isEmpty()) {
-                report.setPhoto1("/api/reports/image/" + report.getPhoto1());
-            }
-            if (report.getPhoto2() != null && !report.getPhoto2().isEmpty()) {
-                report.setPhoto2("/api/reports/image/" + report.getPhoto2());
-            }
-            if (report.getPhoto3() != null && !report.getPhoto3().isEmpty()) {
-                report.setPhoto3("/api/reports/image/" + report.getPhoto3());
-            }
-        });
-        return new APIResponse("Operación exitosa", reports, false, HttpStatus.OK);
+        
+        List<ReportResponseDTO> responseDTOs = reports.stream()
+                .map(report -> new ReportResponseDTO(
+                        report.getId(),
+                        report.getDescription(),
+                        report.getPhoto1() != null && !report.getPhoto1().isEmpty() 
+                            ? "/api/reports/image/" + report.getPhoto1() : null,
+                        report.getPhoto2() != null && !report.getPhoto2().isEmpty() 
+                            ? "/api/reports/image/" + report.getPhoto2() : null,
+                        report.getPhoto3() != null && !report.getPhoto3().isEmpty() 
+                            ? "/api/reports/image/" + report.getPhoto3() : null,
+                        report.getUser() != null ? new ReportResponseDTO.UserBasicDTO(
+                                report.getUser().getId(),
+                                report.getUser().getFullname(),
+                                report.getUser().getUsername()
+                        ) : null,
+                        report.getRoom() != null ? new ReportResponseDTO.RoomBasicDTO(
+                                report.getRoom().getId(),
+                                report.getRoom().getNumber(),
+                                report.getRoom().getStatus()
+                        ) : null
+                ))
+                .collect(Collectors.toList());
+        
+        return new APIResponse("Operación exitosa", responseDTOs, false, HttpStatus.OK);
     }
 
     @Transactional(readOnly = true)
@@ -49,17 +63,29 @@ public class ReportService {
             if (found == null){
                 return new APIResponse("Reporte no encontrado", true, HttpStatus.NOT_FOUND);
             }
-            // Generar URL completa para las imágenes
-            if (found.getPhoto1() != null && !found.getPhoto1().isEmpty()) {
-                found.setPhoto1("/api/reports/image/" + found.getPhoto1());
-            }
-            if (found.getPhoto2() != null && !found.getPhoto2().isEmpty()) {
-                found.setPhoto2("/api/reports/image/" + found.getPhoto2());
-            }
-            if (found.getPhoto3() != null && !found.getPhoto3().isEmpty()) {
-                found.setPhoto3("/api/reports/image/" + found.getPhoto3());
-            }
-            return new APIResponse("Operación exitosa", found, false, HttpStatus.OK);
+            
+            ReportResponseDTO responseDTO = new ReportResponseDTO(
+                    found.getId(),
+                    found.getDescription(),
+                    found.getPhoto1() != null && !found.getPhoto1().isEmpty() 
+                        ? "/api/reports/image/" + found.getPhoto1() : null,
+                    found.getPhoto2() != null && !found.getPhoto2().isEmpty() 
+                        ? "/api/reports/image/" + found.getPhoto2() : null,
+                    found.getPhoto3() != null && !found.getPhoto3().isEmpty() 
+                        ? "/api/reports/image/" + found.getPhoto3() : null,
+                    found.getUser() != null ? new ReportResponseDTO.UserBasicDTO(
+                            found.getUser().getId(),
+                            found.getUser().getFullname(),
+                            found.getUser().getUsername()
+                    ) : null,
+                    found.getRoom() != null ? new ReportResponseDTO.RoomBasicDTO(
+                            found.getRoom().getId(),
+                            found.getRoom().getNumber(),
+                            found.getRoom().getStatus()
+                    ) : null
+            );
+            
+            return new APIResponse("Operación exitosa", responseDTO, false, HttpStatus.OK);
         }catch (Exception e) {
             e.printStackTrace();
             return new APIResponse("No se pudo consultar el reporte", true, HttpStatus.INTERNAL_SERVER_ERROR);
