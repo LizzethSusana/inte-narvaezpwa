@@ -58,7 +58,7 @@ public class AuthService {
         }catch (Exception ex) {
             ex.printStackTrace();
             return new APIResponse(
-                    "Error al iniciar sesion",
+                    "Error al registrar usuario",
                     true,
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
