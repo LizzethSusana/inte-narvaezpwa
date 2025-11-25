@@ -63,7 +63,7 @@ public class RoomService {
             return new APIResponse("Operación exitosa", false, HttpStatus.CREATED);
         }catch (Exception e){
             e.printStackTrace();
-            return new APIResponse("No se pudo registrar la categoria", true, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new APIResponse("No se pudo registrar la Habitacion", true, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -71,13 +71,13 @@ public class RoomService {
     public APIResponse update(Room payload){
         try {
             if (roomRepository.findById(payload.getId()).isEmpty()){
-                return new APIResponse("Categoria no encontrada", true, HttpStatus.NOT_FOUND);
+                return new APIResponse("Habitacion no encontrada", true, HttpStatus.NOT_FOUND);
             }
             roomRepository.save(payload);
             return new APIResponse("Operación exitosa", false, HttpStatus.OK);
         }catch (Exception e){
             e.printStackTrace();
-            return new APIResponse("No se pudo actualizar la categoria", true, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new APIResponse("No se pudo actualizar la Habitacion", true, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -85,13 +85,13 @@ public class RoomService {
     public APIResponse remove(Room payload){
         try {
             if (roomRepository.findById(payload.getId()).isEmpty()){
-                return new APIResponse("Categoria no encontrada", true, HttpStatus.NOT_FOUND);
+                return new APIResponse("Habitacion no encontrada", true, HttpStatus.NOT_FOUND);
             }
             roomRepository.deleteById(payload.getId());
             return new APIResponse("Operación exitosa", false, HttpStatus.OK);
         }catch (Exception e){
             e.printStackTrace();
-            return new APIResponse("No se pudo eliminar la categoria", true, HttpStatus.INTERNAL_SERVER_ERROR);
+            return new APIResponse("No se pudo eliminar la Habitacion", true, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
    }
