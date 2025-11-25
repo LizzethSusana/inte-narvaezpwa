@@ -56,49 +56,65 @@ async function renderAll() {
 
     const info = document.createElement("div");
     info.className = "info";
-    const h3 = document.createElement("h3");
-    h3.textContent = `Hab ${r.id}`;
-    const badge = document.createElement("span");
+    // Mostrar: número de habitación, estado, ocupado/disponible, camarera (select)
     const key = getStatusKey(r.status);
+    const badge = document.createElement("span");
     badge.className = `status-badge ${key}`;
     badge.textContent = r.status || "Limpia";
-    const assigned = document.createElement('div');
-    assigned.className = 'assigned';
-    if (r.maid) {
-      const maidObj = maids.find(m => (m.id || m.email) === r.maid);
-      assigned.textContent = `Camarer@:`;
-    }
-    const occ = document.createElement("div");
-    occ.className = "occ";
-    occ.textContent = r.rented ? "Ocupada" : "";
+    const h3 = document.createElement("h3");
+    h3.textContent = `Hab ${r.id}`;
+
+    // Orden: número primero, luego estado
     info.appendChild(h3);
     info.appendChild(badge);
-    info.appendChild(assigned);
-    info.appendChild(occ);
 
-    const sel = document.createElement("select");
-    sel.innerHTML = '<option value="">Seleccionar camarera</option>' +
-      maids
-        .map((m) =>
-          `<option value="${m.id}" ${r.maid === m.id ? "selected" : ""} ${m.status === "No disponible" ? "disabled" : ""}>${m.name} ${m.status === "No disponible" ? "(No disponible)" : ""}</option>`
-        )
-        .join("");
-    sel.addEventListener("change", async () => {
-      const selected = sel.value || null;
-      if (!selected) {
-        r.maid = null;
-      } else {
-        const chosen = maids.find((m) => m.id === selected);
-        if (chosen && chosen.status === "No disponible") {
-          alert("La camarera no está disponible");
-          sel.value = r.maid || "";
-          return;
+    // Si está bloqueada, no mostrar más detalles
+    let sel = null;
+    if (key !== 'blocked') {
+      // ocupado / disponible
+      const occ = document.createElement("div");
+      occ.className = "occ";
+      occ.textContent = r.rented ? "Ocupada" : "Disponible";
+      info.appendChild(occ);
+
+      // asignación: etiqueta + select
+      const assigned = document.createElement("div");
+      assigned.className = "assigned";
+      const label = document.createElement('div');
+      label.textContent = 'Camarera:';
+      assigned.appendChild(label);
+
+      sel = document.createElement("select");
+      sel.innerHTML = '<option value="">Seleccionar camarera</option>' +
+        maids
+          .map((m) => {
+            const disabled = (m.status || '').toLowerCase().includes('no') ? 'disabled' : '';
+            const selected = r.maid === m.id ? 'selected' : '';
+            const labelText = `${m.name || ''} ${((m.status || '').toLowerCase().includes('no')) ? '(No disponible)' : ''}`;
+            return `<option value="${m.id}" ${selected} ${disabled}>${labelText}</option>`;
+          })
+          .join("");
+
+      sel.addEventListener("change", async () => {
+        const selected = sel.value || null;
+        if (!selected) {
+          r.maid = null;
+        } else {
+          const chosen = maids.find((m) => m.id === selected);
+          if (chosen && (chosen.status || '').toLowerCase().includes('no')) {
+            alert("La camarera no está disponible");
+            sel.value = r.maid || "";
+            return;
+          }
+          r.maid = selected;
         }
-        r.maid = selected;
-      }
-      await put("rooms", r);
-      await renderAll();
-    });
+        await put("rooms", r);
+        await renderAll();
+      });
+
+      assigned.appendChild(sel);
+      info.appendChild(assigned);
+    }
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -124,7 +140,6 @@ async function renderAll() {
     }
 
     card.appendChild(info);
-    card.appendChild(sel);
     card.appendChild(actions);
     roomsList.appendChild(card);
   }
@@ -227,26 +242,39 @@ async function renderAll() {
   maidsPager.appendChild(nextM);
   maidsList.parentNode.insertBefore(maidsPager, maidsList.nextSibling);
 
-  // Render informes
+  // Render informes en la tabla
   reportsEl.innerHTML = "";
-  for (const rep of (reports || []).sort(
-    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-  )) {
-    const r = document.createElement("div");
-    r.className = "report";
-    r.innerHTML = `<h4>Siniestro - Hab ${rep.roomId}</h4><p class="desc">${rep.description || "(sin descripción)"}</p><p class="meta"><strong>Registrado por:</strong> ${rep.createdBy || "—"} • <small>${rep.createdAt || ""}</small></p>`;
+  const sorted = (reports || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  for (const rep of sorted) {
+    const tr = document.createElement('tr');
+    const date = rep.createdAt ? new Date(rep.createdAt).toLocaleString() : '';
+    const room = rep.roomId || '';
+    const desc = rep.description || '(sin descripción)';
+    const tdDate = document.createElement('td');
+    tdDate.textContent = date;
+    const tdRoom = document.createElement('td');
+    tdRoom.textContent = room;
+    const tdDesc = document.createElement('td');
+    // limitar texto a 200 caracteres visuales
+    tdDesc.textContent = desc.length > 200 ? desc.slice(0, 197) + '...' : desc;
+    const tdImgs = document.createElement('td');
     if (rep.images && rep.images.length) {
-      const imgs = document.createElement("div");
-      imgs.className = "report-imgs";
-      rep.images.forEach((src) => {
-        const i = document.createElement("img");
-        i.src = src;
-        i.width = 120;
-        imgs.appendChild(i);
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm view-img-btn';
+      btn.innerHTML = `<i class="bi bi-image"></i> Ver imágenes (${rep.images.length})`;
+      btn.addEventListener('click', () => {
+        if (window.openImagesModal) window.openImagesModal(rep.images);
       });
-      r.appendChild(imgs);
+      tdImgs.appendChild(btn);
+    } else {
+      tdImgs.textContent = '—';
     }
-    reportsEl.appendChild(r);
+
+    tr.appendChild(tdDate);
+    tr.appendChild(tdRoom);
+    tr.appendChild(tdDesc);
+    tr.appendChild(tdImgs);
+    reportsEl.appendChild(tr);
   }
 }
 
@@ -304,6 +332,12 @@ function addMaidModal() {
   if (saveMaidBtn) saveMaidBtn.className = 'btn btn-primary';
   if (closeMaidBtn) closeMaidBtn.className = 'btn btn-secondary';
 
+  // enfocar el campo de contraseña para que el usuario pueda escribir inmediatamente
+  setTimeout(() => {
+    const pwd = document.getElementById('maidPassword');
+    if (pwd) { pwd.focus(); pwd.select(); }
+  }, 40);
+
   document.getElementById("saveMaid").onclick = async () => {
     const name = document.getElementById("maidName").value.trim();
     const email = document.getElementById("maidEmail").value.trim();
@@ -320,49 +354,99 @@ function addMaidModal() {
 
 function editMaidModal(maid) {
   modal.classList.remove("hidden");
-  // allow editing email (id) — we'll perform migration if changed
-  modal.innerHTML = `<div class="modal-content" role="dialog"><h3>Editar Camarera</h3><label>Nombre</label><input id="editMaidName" value="${maid.name || ''}" required/><label>Correo</label><input id="editMaidEmail" type="email" value="${maid.email || maid.id || ''}" required/><label>Estado</label><select id="editMaidStatus"><option value="Disponible">Disponible</option><option value="No disponible">No disponible</option><option value="Ocupado">Ocupado</option></select><div class="row"><button id="saveEditMaid">Guardar</button><button id="closeModal">Cerrar</button></div></div>`;
-  const statusEl = modal.querySelector('#editMaidStatus');
-  if (statusEl) statusEl.value = maid.status || 'Disponible';
-  // style buttons with Bootstrap
-  const saveBtn = document.getElementById("saveEditMaid");
-  const closeBtn = document.getElementById("closeModal");
-  if (saveBtn) saveBtn.className = 'btn btn-primary';
-  if (closeBtn) closeBtn.className = 'btn btn-secondary';
+  modal.innerHTML = `
+    <div class="modal-content" role="dialog">
+      <h3>Editar Camarera</h3>
+
+      <label>Nombre</label>
+      <input id="editMaidName" value="${maid.name || ''}" required/>
+
+      <label>Correo</label>
+      <input id="editMaidEmail" type="email"
+             value="${maid.email || maid.id || ''}" required/>
+
+      <label>Nueva Contraseña (opcional)</label>
+      <input id="editMaidPassword" type="password" placeholder="Dejar vacío para no cambiar"/>
+
+      <label>Estado</label>
+      <select id="editMaidStatus">
+        <option value="Disponible">Disponible</option>
+        <option value="No disponible">No disponible</option>
+        <option value="Ocupado">Ocupado</option>
+      </select>
+
+      <div class="row">
+        <button id="saveEditMaid">Guardar</button>
+        <button id="closeModal">Cerrar</button>
+      </div>
+    </div>`;
+  
   document.getElementById("closeModal").onclick = () => modal.classList.add("hidden");
+
+  const statusEl = document.getElementById("editMaidStatus");
+  statusEl.value = maid.status || "Disponible";
+
+  const saveBtn = document.getElementById("saveEditMaid");
+  saveBtn.className = "btn btn-primary";
+  document.getElementById("closeModal").className = "btn btn-secondary";
+
   document.getElementById("saveEditMaid").onclick = async () => {
     const name = document.getElementById("editMaidName").value.trim();
     const newEmail = document.getElementById("editMaidEmail").value.trim();
-    const status = document.getElementById("editMaidStatus").value || 'Disponible';
+    const newPassword = document.getElementById("editMaidPassword").value.trim();
+    const status = document.getElementById("editMaidStatus").value;
+
     if (!name || !newEmail) return alert("Nombre y correo requeridos");
+
     const oldId = maid.id || maid.email;
     const newId = newEmail;
-    // if email changed, migrate record key in IndexedDB
+
+    // si cambió el correo
     if (newId !== oldId) {
-      const allMaids = (await getAll('maids').catch(() => [])) || [];
+      const allMaids = (await getAll("maids").catch(() => [])) || [];
       const exists = allMaids.find(x => (x.id || x.email) === newId);
-      if (exists) return alert('Ya existe una camarera con ese correo');
-      // create new record with newId
-      const newRecord = { ...maid, id: newId, name, email: newId, status };
-      await put('maids', newRecord);
-      // update rooms referencing oldId to point to newId
-      const roomsAll = await getAll('rooms').catch(() => []);
+      if (exists) return alert("Ya existe una camarera con ese correo");
+
+      const newRecord = {
+        ...maid,
+        id: newId,
+        email: newId,
+        name,
+        status,
+        password: newPassword || maid.password // <-- mantiene o actualiza
+      };
+
+      await put("maids", newRecord);
+
+      // actualizar habitaciones
+      const roomsAll = await getAll("rooms").catch(() => []);
       for (const room of roomsAll) {
         if (room.maid === oldId) {
           room.maid = newId;
-          await put('rooms', room);
+          await put("rooms", room);
         }
       }
-      // remove old record
-      await del('maids', oldId);
+
+      await del("maids", oldId);
+
     } else {
-      // same id — just update record
-      await put('maids', { ...maid, id: newId, name, email: newId, status });
+      // mismo ID
+      const updated = {
+        ...maid,
+        id: newId,
+        email: newId,
+        name,
+        status,
+        password: newPassword ? newPassword : maid.password
+      };
+      await put("maids", updated);
     }
+
     modal.classList.add("hidden");
     await renderAll();
   };
 }
+
 
 async function openReportModal(room, maids = []) {
   modal.classList.remove("hidden");
@@ -377,6 +461,7 @@ async function openReportModal(room, maids = []) {
     const report = {
       _id: "r_" + Date.now(),
       roomId: room.id,
+      maids: maids,
       description: desc,
       images,
       createdAt: new Date().toISOString(),
@@ -424,3 +509,4 @@ document.addEventListener("keydown", (e) => {
 
 // Inicializar render
 renderAll();
+

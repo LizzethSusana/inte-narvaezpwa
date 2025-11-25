@@ -1,0 +1,299 @@
+/* ===========================
+   ESTILOS GENERALES CAMARERA
+=========================== */
+:root {
+  --primary: #0066cc;
+  --primary-light: #004a99;
+  --accent: #ffb6c1;
+  --bg: #f6f7fb;
+  --text: #333;
+  --card-bg: #ffffff;
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+body {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ===========================
+   HEADER
+=========================== */
+.topbar {
+  background: var(--primary);
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.topbar nav a {
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: 0.2s;
+  color: antiquewhite !important;
+}
+
+.topbar nav a:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ===========================
+   CONTENEDOR
+=========================== */
+.container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 10px;
+}
+
+/* ===========================
+   CARD PRINCIPAL
+=========================== */
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.4rem;
+  color: var(--primary);
+}
+
+/* ===========================
+   BOTONES DE FILTRO
+=========================== */
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+
+.filters button {
+  background: var(--primary-light);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s;
+  color: #fff;
+}
+
+.filters button:hover {
+  background: var(--primary);
+}
+
+.filters button.active {
+  background: var(--primary);
+  transform: scale(1.05);
+}
+
+/* ===========================
+   GRID DE HABITACIONES
+=========================== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 15px;
+}
+
+/* =====================================================
+   ESTILO MEJORADO: CARDS DE HABITACIÓN
+===================================================== */
+
+.room-card {
+  background: white;
+  border-radius: 20;
+  padding: 22px;
+  width: 100%;
+
+  box-shadow: var(--shadow);
+  text-align: left;
+  transition: 0.25s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left-width: 8px !important;
+}
+
+.room-card h3 {
+  font-size: 1.4rem;
+  margin-bottom: 4px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.room-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.room-card small {
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  align-self: flex-start;
+}
+
+.row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.row-actions button {
+  width: 100%;
+  padding: 10px;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Colores más suaves */
+.room-card.clean { border-left-color: #42c76a; }
+.room-card.to-clean { border-left-color: #ff5d5d; }
+.room-card.occupied { border-left-color: #f5c048; }
+.room-card.blocked { border-left-color: #888; }
+
+/* Hover suave */
+.room-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+
+/* =====================================================
+   MODAL DE LEVANTAR SINIESTRO - MEJORADO
+===================================================== */
+
+.modal-content {
+  background: white;
+  padding: 25px;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow);
+  animation: pop 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (max-width: 480px) {
+  .modal-content {
+    width: 95%;
+    padding: 18px;
+  }
+}
+
+.modal-content h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.modal-content label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.modal-content textarea {
+  width: 100%;
+  height: 90px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  resize: none;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.modal-content input[type="file"] {
+  margin-top: 5px;
+}
+
+.modal-content .row {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.modal-content button {
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.modal-content button.btn-secondary {
+  background: #ccc;
+  color: black;
+}
+
+.modal-content button.btn-secondary:hover {
+  background: #b3b3b3;
+}
+
+.modal-content button.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.modal-content button.btn-primary:hover {
+  background: var(--primary-light);
+}
+/* =====================================================
+   CONTENEDOR GENERAL DEL MODAL
+===================================================== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 999;
+}
+
+/* cuando el modal esta activo */
+.modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* oculto por defecto */
+.hidden {
+  display: none !important;
+}
+
+
