@@ -16,8 +16,8 @@ public class InitialConfig implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        rolRepository.save(new Rol("RECEPTION"));
-        rolRepository.save(new Rol("MAID"));
+        getOrCreateRol("RECEPTION");
+        getOrCreateRol("MAID");
     }
 
     private Rol getOrCreateRol(String name) {
