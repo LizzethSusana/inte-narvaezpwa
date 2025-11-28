@@ -1,10 +1,13 @@
 package com.hotel.pwa.models.report;
 
 import com.hotel.pwa.models.report.dto.ReportResponseDTO;
+import com.hotel.pwa.models.room.Room;
+import com.hotel.pwa.models.room.RoomRepository;
+import com.hotel.pwa.models.user.BeanUser;
+import com.hotel.pwa.models.user.UserRepository;
 import com.hotel.pwa.utils.APIResponse;
 import com.hotel.pwa.utils.FileService;
 import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,12 @@ public class ReportService {
     @Autowired
     private FileService fileService;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoomRepository roomRepository;
+
 
     @Transactional(readOnly = true)
     public APIResponse findAll(){
@@ -33,6 +42,7 @@ public class ReportService {
         List<ReportResponseDTO> responseDTOs = reports.stream()
                 .map(report -> new ReportResponseDTO(
                         report.getId(),
+                        report.getTitle(),
                         report.getDescription(),
                         report.getPhoto1() != null && !report.getPhoto1().isEmpty() 
                             ? "/api/reports/image/" + report.getPhoto1() : null,
@@ -66,6 +76,7 @@ public class ReportService {
             
             ReportResponseDTO responseDTO = new ReportResponseDTO(
                     found.getId(),
+                    found.getTitle(),
                     found.getDescription(),
                     found.getPhoto1() != null && !found.getPhoto1().isEmpty() 
                         ? "/api/reports/image/" + found.getPhoto1() : null,
@@ -100,10 +111,24 @@ public class ReportService {
                 return new APIResponse("El usuario es requerido", true, HttpStatus.BAD_REQUEST);
             }
 
+            // Verificar que el usuario existe en la base de datos
+            BeanUser user = userRepository.findById(payload.getUser().getId()).orElse(null);
+            if (user == null) {
+                return new APIResponse("El usuario con ID " + payload.getUser().getId() + " no existe", true, HttpStatus.NOT_FOUND);
+            }
+            payload.setUser(user);
+
             // Validar que la habitación exista
             if (payload.getRoom() == null || payload.getRoom().getId() == null) {
                 return new APIResponse("La habitación es requerida", true, HttpStatus.BAD_REQUEST);
             }
+
+            // Verificar que la habitación existe en la base de datos
+            Room room = roomRepository.findById(payload.getRoom().getId()).orElse(null);
+            if (room == null) {
+                return new APIResponse("La habitación con ID " + payload.getRoom().getId() + " no existe", true, HttpStatus.NOT_FOUND);
+            }
+            payload.setRoom(room);
 
             // Guardar foto 1 si se proporciona
             if (photo1 != null && !photo1.isEmpty()) {

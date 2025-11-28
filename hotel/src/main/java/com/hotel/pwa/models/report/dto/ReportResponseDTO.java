@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReportResponseDTO {
     private Long id;
+    private String title;
     private String description;
     private String photo1;
     private String photo2;

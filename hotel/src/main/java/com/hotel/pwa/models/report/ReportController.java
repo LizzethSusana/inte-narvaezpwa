@@ -32,6 +32,7 @@ public class ReportController {
 
     @PostMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<APIResponse> save(
+            @RequestParam("title")  String title,
             @RequestParam("description") String description,
             @RequestParam("user_id") Long userId,
             @RequestParam("room_id") Long roomId,
@@ -40,7 +41,10 @@ public class ReportController {
             @RequestParam(value = "photo3", required = false) MultipartFile photo3) {
 
         try {
-            // Validaciones básicas
+            if (title == null || title.trim().isEmpty()) {
+                return new ResponseEntity<>(new APIResponse("El titulo es requerido", true, HttpStatus.BAD_REQUEST), HttpStatus.BAD_REQUEST);
+            }
+
             if (description == null || description.trim().isEmpty()) {
                 return new ResponseEntity<>(new APIResponse("La descripción es requerida", true, HttpStatus.BAD_REQUEST), HttpStatus.BAD_REQUEST);
             }
@@ -52,9 +56,9 @@ public class ReportController {
             }
 
             Report report = new Report();
+            report.setTitle(title.trim());
             report.setDescription(description.trim());
 
-            // Configurar usuario
             com.hotel.pwa.models.user.BeanUser user = new com.hotel.pwa.models.user.BeanUser();
             user.setId(userId);
             report.setUser(user);
@@ -76,6 +80,7 @@ public class ReportController {
     @PutMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<APIResponse> update(
             @RequestParam("id") Long id,
+            @RequestParam("title")  String title,
             @RequestParam("description") String description,
             @RequestParam("user_id") Long userId,
             @RequestParam("room_id") Long roomId,
@@ -86,14 +91,13 @@ public class ReportController {
         try {
             Report report = new Report();
             report.setId(id);
+            report.setTitle(title.trim());
             report.setDescription(description.trim());
 
-            // Configurar usuario
             com.hotel.pwa.models.user.BeanUser user = new com.hotel.pwa.models.user.BeanUser();
             user.setId(userId);
             report.setUser(user);
 
-            // Configurar habitación
             com.hotel.pwa.models.room.Room room = new com.hotel.pwa.models.room.Room();
             room.setId(roomId);
             report.setRoom(room);
