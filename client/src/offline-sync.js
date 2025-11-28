@@ -1,4 +1,5 @@
 import { put, getAll } from "./idb.js";
+const RUNTIME = "pwa-hotel-runtime-v1";
 
 export async function saveReportOffline(report) {
   report._id = "local_" + Date.now();
@@ -12,6 +13,21 @@ export async function saveReportOffline(report) {
     }
   }
 }
+
+export async function saveRoomStatusOffline(roomStatus) {
+  roomStatus._id = "room_" + Date.now();
+  await put("outbox", roomStatus);
+
+  if ("serviceWorker" in navigator && "SyncManager" in window) {
+    const reg = await navigator.serviceWorker.ready;
+    try {
+      await reg.sync.register("sync-reports");
+    } catch (e) {
+      console.warn("Background sync no disponible", e);
+    }
+  }
+}
+
 
 export async function flushOutbox() {
   const db = await openDB();

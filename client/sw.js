@@ -3,6 +3,23 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(self.clients.claim())
 );
 
+const APP_SHELL = [
+  "/",
+  "/index.html",
+  "/maid.html",
+  "/offline.sync.js",
+  "/idb.js",
+  "/styles.css",
+  "/app.js"
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+  );
+});
+
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   // API pattern -> network-first then cache
