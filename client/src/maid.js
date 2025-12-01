@@ -32,7 +32,9 @@ filterBtns.forEach((b) => {
     currentFilter = b.getAttribute("data-filter") || "all";
     render();
   });
+  
 });
+
 
 function matchesFilter(r, filter) {
   if (!filter || filter === "all") return true;
@@ -60,6 +62,7 @@ function matchesFilter(r, filter) {
 
 export async function render() {
   const rooms = (await getAll("rooms").catch(() => [])) || [];
+  
   // SECCIÓN 1: Mis habitaciones asignadas (con filtros)
   let assigned = rooms.filter((r) => r.maid === user);
   let visible = assigned.filter((r) => matchesFilter(r, currentFilter));
@@ -129,10 +132,7 @@ export async function render() {
       const statusLower = String(r.status || "").toLowerCase();
       const assignedMaid = r.maid ? `(Asignada a: ${r.maid})` : "(Sin asignar)";
       let cleanedInfo = "";
-      if (
-        r.cleanedBy &&
-        (statusLower.includes("limp") || statusLower === "clean")
-      ) {
+      if (r.cleanedBy && (statusLower.includes("limp") || statusLower === "clean")) {
         cleanedInfo = `<br><small style="color:#2e8b57;font-weight:500;">Aseada por: ${r.cleanedBy}</small>`;
       }
       el.innerHTML = `<h3>Hab ${r.id}</h3><p>Estado: ${statusText}${
@@ -261,32 +261,26 @@ function openReportModal(room) {
   modal.classList.add("show");
 
   modal.innerHTML = `
- <div class="modal-content">
-   <h3>Siniestro - Hab ${room.id}</h3>
-  
-   <label for="subject">Tema / Asunto</label>
-   <input id="subject" type="text" placeholder="Ej: Fuga de agua, daño en mueble, etc." required />
-  
-   <label for="desc">Descripción</label>
-   <textarea id="desc" placeholder="Describe el problema en detalle..." required></textarea>
-  
-   <label>Fotos (máx 3)</label>
-   <div id="cameraArea">
-     <video id="video" autoplay playsinline style="width:100%;max-height:240px;background:#000;display:none;border-radius:6px;"></video>
-     <canvas id="canvas" style="display:none;"></canvas>
-     <div id="cameraControls" style="margin-top:8px;display:flex;align-items:center;gap:8px;">
-       <button id="startCam" class="btn btn-sm btn-primary">Iniciar cámara</button>
-       <button id="capture" class="btn btn-sm btn-success" disabled>Tomar foto</button>
-       <span id="photoCount" style="margin-left:8px">0 / 3</span>
-     </div>
-     <div id="thumbs" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
-   </div>
-  
-   <div class="row">
-     <button id="send" class="btn btn-primary">Enviar</button>
-     <button id="close" class="btn btn-secondary">Cerrar</button>
-   </div>
- </div>`;
+  <div class="modal-content">
+    <h3>Siniestro - Hab ${room.id}</h3>
+    <label>Descripción</label>
+    <textarea id="desc"></textarea>
+    <label>Fotos (máx 3)</label>
+      <div id="cameraArea">
+        <video id="video" autoplay playsinline style="width:100%;max-height:240px;background:#000;display:none;border-radius:6px;"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <div id="cameraControls" style="margin-top:8px;display:none;align-items:center;gap:8px;">
+          <button id="startCam" class="btn btn-sm btn-primary">Iniciar cámara</button>
+          <button id="capture" class="btn btn-sm btn-success" disabled>Tomar foto</button>
+          <span id="photoCount" style="margin-left:8px">0 / 3</span>
+        </div>
+        <div id="thumbs" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
+      </div>
+    <div class="row">
+      <button id="send" class="btn btn-primary">Enviar</button>
+      <button id="close" class="btn btn-secondary">Cerrar</button>
+    </div>
+  </div>`;
 
   document.getElementById("close").onclick = () => {
     stopStream();
@@ -354,10 +348,6 @@ function openReportModal(room) {
       await warningModal("Tu navegador no soporta acceso a cámara.");
       return false;
     }
-
-    startCamBtn.disabled = true;
-    startCamBtn.textContent = "Iniciando...";
-
     try {
       // intentar cámara trasera primero
       stream = await navigator.mediaDevices.getUserMedia({
@@ -366,16 +356,11 @@ function openReportModal(room) {
       });
       video.srcObject = stream;
       video.style.display = "block";
-      startCamBtn.style.display = "none";
+      document.getElementById("cameraControls").style.display = "flex";
       captureBtn.disabled = false;
-      updateUI();
       return true;
     } catch (e) {
-      startCamBtn.disabled = false;
-      startCamBtn.textContent = "Iniciar cámara";
-      await warningModal(
-        "No se pudo acceder a la cámara trasera. Verifica permisos o intenta en otro dispositivo."
-      );
+      await warningModal("No se pudo acceder a la cámara trasera. Verifica permisos o intenta en otro dispositivo.");
       return false;
     }
   }
@@ -385,17 +370,13 @@ function openReportModal(room) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
     }
-    if (video) video.style.display = "none";
-    const camControls = document.getElementById("cameraControls");
-    if (camControls && startCamBtn) {
-      startCamBtn.style.display = "inline-block";
-      startCamBtn.disabled = false;
-      startCamBtn.textContent = "Iniciar cámara";
-    }
+    video.style.display = "none";
+    document.getElementById("cameraControls").style.display = "none";
   }
 
   startCamBtn.onclick = async () => {
-    await startStream();
+    const ok = await startStream();
+    if (ok) updateUI();
   };
 
   captureBtn.onclick = () => {
@@ -420,15 +401,7 @@ function openReportModal(room) {
     const subject = document.getElementById("subject").value.trim();
     const desc = document.getElementById("desc").value.trim();
 
-    if (!subject) {
-      alert("El tema es requerido");
-      return;
-    }
-
-    if (!desc) {
-      alert("La descripción es requerida");
-      return;
-    }
+    if (!desc) return alert("Descripción requerida");
 
     // validar fotos tomadas
     if (images.length === 0) {
@@ -492,3 +465,5 @@ async function init() {
 }
 
 init();
+
+

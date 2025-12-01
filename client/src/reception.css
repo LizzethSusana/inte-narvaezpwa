@@ -43,12 +43,44 @@ body {
 }
 .topbar nav a:hover { opacity: .7; }
 
+@media (max-width: 480px) {
+  .topbar {
+    padding: 12px 15px;
+  }
+  
+  .topbar h1 {
+    font-size: 1.2rem;
+    margin: 0;
+  }
+  
+  .topbar nav a {
+    font-size: 0.9rem;
+  }
+}
+
 /* ======= MAIN ======= */
 .container {
   max-width: 1100px;
   margin: 40px auto;
   display: grid;
   gap: 25px;
+  padding: 0 15px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    margin: 20px auto;
+    gap: 20px;
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    margin: 15px auto;
+    gap: 15px;
+    padding: 0 8px;
+  }
 }
 
 /* ======= CARDS ======= */
@@ -65,11 +97,39 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
 }
 
 .card h2 {
   color: var(--primary-dark);
   font-size: 1.3rem;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 18px;
+  }
+  
+  .card h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 12px;
+  }
+  
+  .card h2 {
+    font-size: 0.95rem;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* ======= BUTTONS ======= */
@@ -86,11 +146,25 @@ body {
 }
 
 /* ======= GRID ======= */
+/* GRID RESPONSIVO */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 18px;
 }
+
+@media (max-width: 1024px) { 
+  .grid { grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); } 
+}
+
+@media (max-width: 768px) { 
+  .grid { grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); } 
+}
+
+@media (max-width: 480px) { 
+  .grid { grid-template-columns: 1fr; } 
+}
+
 
 .grid .item, #maidsList .item {
   background: white;
@@ -138,6 +212,13 @@ body {
    ============================= */
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* desplazamiento suave en iOS */
+  width: 100%;
+  margin-top: 10px;
+}
+
+.maids-container {
+  width: 100%;
 }
 
 table {
@@ -159,6 +240,114 @@ thead {
 th, td {
   padding: 12px 15px;
   border-bottom: 1px solid #e6e6e6;
+  text-align: left;
+}
+
+/* Responsividad en tabletas y móviles */
+@media (max-width: 768px) {
+  th, td {
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+  
+  table {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .table-wrapper {
+    margin-top: 8px;
+  }
+  
+  /* Convertir tabla a cards en móvil */
+  .maids-container table {
+    border-collapse: separate;
+    border-spacing: 0 10px;
+    background: transparent;
+    box-shadow: none;
+  }
+  
+  .maids-container thead {
+    display: none;
+  }
+  
+  .maids-container tbody {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .maids-container tbody tr {
+    display: grid;
+    grid-template-columns: 100%;
+    background: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    gap: 8px;
+  }
+  
+  .maids-container tbody td {
+    padding: 6px 0;
+    border: none;
+    border-bottom: none;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+  
+  /* Labels para cada campo */
+  .maids-container tbody td::before {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .maids-container tbody tr td:nth-child(1)::before { content: "Nombre:"; }
+  .maids-container tbody tr td:nth-child(2)::before { content: "Correo:"; }
+  .maids-container tbody tr td:nth-child(3)::before { content: "Estado:"; }
+  .maids-container tbody tr td:nth-child(4)::before { content: "Acciones:"; }
+  
+  .maids-container tbody tr td:nth-child(4) {
+    grid-template-columns: auto;
+    display: flex;
+    gap: 8px;
+  }
+  
+  .maids-container tbody tr td:nth-child(4)::before {
+    display: none;
+  }
+  
+  th, td {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+  }
+  
+  table {
+    font-size: 0.75rem;
+    min-width: 100%;
+  }
+  
+  /* Botones de acción más pequeños pero aún táctiles */
+  .btn-sm {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .btn-sm i {
+    font-size: 0.9rem;
+  }
+  
+  /* Garantizar que el select dentro de la tarjeta sea táctil */
+  .actions {
+    gap: 6px;
+  }
 }
 
 /* ===== VER IMÁGENES BUTTON ===== */
@@ -201,14 +390,16 @@ th, td {
 .modal-content {
   width: 100%;
   max-width: 420px;
-  background: white;
-  border-radius: 14px;
-  padding: 22px;
-  box-shadow: 0 8px 25px #0003;
-  animation: pop 0.25s ease;
-  z-index: 10000;
-  pointer-events: auto;
+  margin: 0 10px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
+
+.img-viewer .modal-content {
+  max-width: 90%;
+  padding: 10px;
+}
+
 
 @keyframes pop {
   0% { transform: scale(0.85); opacity: 0; }
@@ -241,6 +432,15 @@ th, td {
   display: flex;
   gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* asegurar campos y botones son grandes y táctiles en móviles */
+.modal-content input,
+.modal-content select,
+.modal-content textarea,
+.modal-content button {
+  font-size: 1rem;
 }
 
 /* Ajustes adicionales para tarjetas de habitación y checkbox inline */
