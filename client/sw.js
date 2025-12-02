@@ -1,16 +1,32 @@
-const CACHE_NAME = "pwa-hotel-static-v2";
-self.addEventListener("activate", (event) =>
-  event.waitUntil(self.clients.claim())
-);
+const CACHE_NAME = "pwa-hotel-static-v3";
+const RUNTIME = "pwa-hotel-runtime-v3";
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME && key !== RUNTIME)
+          .map((key) => caches.delete(key))
+      );
+    }).then(() => self.clients.claim())
+  );
+});
 
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/maid.html",
-  "/offline.sync.js",
-  "/idb.js",
-  "/styles.css",
-  "/app.js"
+  "./index.html",
+  "./maid.html",
+  "./reception.html",
+  "./src/offline-sync.js",
+  "./src/idb.js",
+  "./src/styles.css",
+  "./src/maid.css",
+  "./src/reception.css",
+  "./src/app-login.js",
+  "./src/maid.js",
+  "./src/reception.js",
+  "./src/api.js",
+  "./src/assets/icons/icon-192.png",
+  "./src/assets/icons/icon-512.png"
 ];
 
 self.addEventListener("install", (event) => {
