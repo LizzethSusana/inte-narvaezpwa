@@ -1,5 +1,6 @@
 import { getAll, put, del } from "./idb.js";
 
+<<<<<<< HEAD
 
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
  if (import.meta && import.meta.env && import.meta.env.DEV) {
@@ -8,6 +9,16 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 
+=======
+// En desarrollo, desregistrar SW para evitar caché de estilos
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  if (import.meta && import.meta.env && import.meta.env.DEV) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+  }
+}
+
+// Referencias DOM necesarias
+>>>>>>> a940211 (Guardando mis cambios locales)
 const modal = document.getElementById("modal");
 const roomsList = document.getElementById("roomsList");
 const maidsList = document.getElementById("maidsList");
@@ -15,11 +26,19 @@ const reportsEl = document.getElementById("reportsList");
 const btnAddRoom = document.getElementById("btnAddRoom");
 const btnAddMaid = document.getElementById("btnAddMaid");
 
+<<<<<<< HEAD
 
 console.log('btnAddRoom:', btnAddRoom);
 console.log('btnAddMaid:', btnAddMaid);
 
 
+=======
+// Debug: verificar que los botones se encuentren
+console.log('btnAddRoom:', btnAddRoom);
+console.log('btnAddMaid:', btnAddMaid);
+
+// pagination state
+>>>>>>> a940211 (Guardando mis cambios locales)
 let roomsPage = 0;
 let maidsPage = 0;
 let reportsPage = 0;
@@ -592,6 +611,7 @@ async function editRoomModal(room) {
     const tr = document.createElement('tr');
     const date = rep.createdAt ? new Date(rep.createdAt).toLocaleString() : '';
     const room = rep.roomId || '';
+    const subject = rep.subject || '—';
     const desc = rep.description || '(sin descripción)';
     const tdDate = document.createElement('td');
     tdDate.textContent = date;
@@ -618,9 +638,13 @@ async function editRoomModal(room) {
     }
     tdMaid.textContent = maidDisplay;
 
+    const tdSubject = document.createElement('td');
+    tdSubject.textContent = subject;
+    tdSubject.style.fontWeight = '600';
+
     const tdDesc = document.createElement('td');
-    // limitar texto a 200 caracteres visuales
-    tdDesc.textContent = desc.length > 200 ? desc.slice(0, 197) + '...' : desc;
+    // limitar texto a 150 caracteres visuales
+    tdDesc.textContent = desc.length > 150 ? desc.slice(0, 147) + '...' : desc;
     const tdImgs = document.createElement('td');
     if (rep.images && rep.images.length) {
       const btn = document.createElement('button');
@@ -637,6 +661,7 @@ async function editRoomModal(room) {
     tr.appendChild(tdDate);
     tr.appendChild(tdRoom);
     tr.appendChild(tdMaid);
+    tr.appendChild(tdSubject);
     tr.appendChild(tdDesc);
     tr.appendChild(tdImgs);
     reportsEl.appendChild(tr);
@@ -802,13 +827,46 @@ function addMaidModal() {
  };
 =======
   modal.classList.remove("hidden");
-  modal.innerHTML = `<div class="modal-content" role="dialog"><h3>Nueva Camarera</h3><label>Nombre</label><input id="maidName" required/><label>Correo</label><input id="maidEmail" type="email" required/><label>Contraseña (opcional)</label><input id="maidPassword" type="password" placeholder="Opcional" /><label>Estado</label><select id="maidStatus"><option value="Disponible">Disponible</option><option value="No disponible">No disponible</option></select><div class="row"><button id="saveMaid">Guardar</button><button id="closeModal">Cerrar</button></div></div>`;
+  modal.innerHTML = `<div class="modal-content" role="dialog">
+    <h3>Nueva Camarera</h3>
+    <label for="maidName">Nombre</label>
+    <input id="maidName" required/>
+    <label for="maidEmail">Correo</label>
+    <input id="maidEmail" type="email" required/>
+    <label for="maidPassword">Contraseña (opcional)</label>
+    <input id="maidPassword" type="password" placeholder="Opcional" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <div class="row" style="justify-content:flex-end; gap:8px; margin-top:6px;">
+      <button id="pwdSelect" type="button" class="btn btn-sm btn-outline-secondary">Seleccionar</button>
+    </div>
+    <label for="maidStatus">Estado</label>
+    <select id="maidStatus"><option value="Disponible">Disponible</option><option value="No disponible">No disponible</option></select>
+    <div class="row"><button id="saveMaid">Guardar</button><button id="closeModal">Cerrar</button></div>
+  </div>`;
   document.getElementById("closeModal").onclick = () => modal.classList.add("hidden");
   // style buttons
   const saveMaidBtn = document.getElementById("saveMaid");
   const closeMaidBtn = document.getElementById("closeModal");
   if (saveMaidBtn) saveMaidBtn.className = 'btn btn-primary';
   if (closeMaidBtn) closeMaidBtn.className = 'btn btn-secondary';
+
+  // Controles de contraseña: mostrar/ocultar y seleccionar
+  const pwdInput = document.getElementById("maidPassword");
+  const pwdToggle = document.getElementById("pwdToggle");
+  const pwdSelect = document.getElementById("pwdSelect");
+  if (pwdToggle && pwdInput) {
+    pwdToggle.onclick = () => {
+      pwdInput.type = pwdInput.type === 'password' ? 'text' : 'password';
+      pwdToggle.textContent = pwdInput.type === 'password' ? 'Mostrar' : 'Ocultar';
+      pwdInput.focus();
+    };
+  }
+  if (pwdSelect && pwdInput) {
+    pwdSelect.onclick = () => {
+      pwdInput.focus();
+      pwdInput.select();
+      try { document.execCommand('copy'); } catch (_) {}
+    };
+  }
 
   document.getElementById("saveMaid").onclick = async () => {
     const name = document.getElementById("maidName").value.trim();
@@ -845,6 +903,15 @@ function editMaidModal(maid) {
      <label>Nombre</label>
      <input id="editMaidName" value="${maid.name || ''}" required/>
 
+<<<<<<< HEAD
+=======
+      <label for="editMaidPassword">Nueva Contraseña (opcional)</label>
+      <input id="editMaidPassword" type="password" placeholder="Dejar vacío para no cambiar" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <div class="row" style="justify-content:flex-end; gap:8px; margin-top:6px;">
+        <button id="editPwdToggle" type="button" class="btn btn-sm btn-secondary">Mostrar</button>
+        <button id="editPwdSelect" type="button" class="btn btn-sm btn-outline-secondary">Seleccionar</button>
+      </div>
+>>>>>>> a940211 (Guardando mis cambios locales)
 
      <label>Correo</label>
      <input id="editMaidEmail" type="email"
@@ -879,7 +946,29 @@ function editMaidModal(maid) {
  statusEl.value = maid.status || "Disponible";
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+  // Controles de contraseña en edición
+  const editPwdInput = document.getElementById('editMaidPassword');
+  const editPwdToggle = document.getElementById('editPwdToggle');
+  const editPwdSelect = document.getElementById('editPwdSelect');
+  if (editPwdToggle && editPwdInput) {
+    editPwdToggle.onclick = () => {
+      editPwdInput.type = editPwdInput.type === 'password' ? 'text' : 'password';
+      editPwdToggle.textContent = editPwdInput.type === 'password' ? 'Mostrar' : 'Ocultar';
+      editPwdInput.focus();
+    };
+  }
+  if (editPwdSelect && editPwdInput) {
+    editPwdSelect.onclick = () => {
+      editPwdInput.focus();
+      editPwdInput.select();
+      try { document.execCommand('copy'); } catch (_) {}
+    };
+  }
+
+>>>>>>> a940211 (Guardando mis cambios locales)
   document.getElementById("saveEditMaid").onclick = async () => {
     const name = document.getElementById("editMaidName").value.trim();
     const newEmail = document.getElementById("editMaidEmail").value.trim();
@@ -1248,6 +1337,43 @@ if (btnAddMaid) {
 >>>>>>> e626399 (añadiendo para pruebas)
 }
 
+<<<<<<< HEAD
+=======
+// Enlazar botones con soporte táctil mejorado
+if (btnAddRoom) {
+  btnAddRoom.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('btnAddRoom clicked');
+    addRoomModal();
+  }, { passive: false });
+  
+  // Agregar soporte táctil explícito para móviles
+  btnAddRoom.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('btnAddRoom touched');
+    addRoomModal();
+  }, { passive: false });
+}
+
+if (btnAddMaid) {
+  btnAddMaid.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('btnAddMaid clicked');
+    addMaidModal();
+  }, { passive: false });
+  
+  // Agregar soporte táctil explícito para móviles
+  btnAddMaid.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('btnAddMaid touched');
+    addMaidModal();
+  }, { passive: false });
+}
+>>>>>>> a940211 (Guardando mis cambios locales)
 
 if (modal)
  modal.addEventListener("click", (e) => {

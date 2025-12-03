@@ -1,7 +1,13 @@
 import { openDB, getAll, put } from "./idb.js";
 
 async function bootstrap() {
+<<<<<<< HEAD
   if ("serviceWorker" in navigator) {
+=======
+  // Registrar/Desregistrar service worker según entorno
+  if ("serviceWorker" in navigator) {
+    // En desarrollo, desregistrar para evitar caché que rompe estilos
+>>>>>>> a940211 (Guardando mis cambios locales)
     if (import.meta && import.meta.env && import.meta.env.DEV) {
       try {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -67,7 +73,11 @@ async function bootstrap() {
       }
 
       const encoded = encodeURIComponent(maid.id || maid.email);
+<<<<<<< HEAD
       location.href = ./maid.html?user=${encoded};
+=======
+      location.href = `./maid.html?user=${encoded}`;
+>>>>>>> a940211 (Guardando mis cambios locales)
 
     } catch (err) {
       console.error("Error login:", err);
