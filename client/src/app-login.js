@@ -1,13 +1,19 @@
 import { openDB, getAll, put } from "./idb.js";
 
 async function bootstrap() {
-  // Registrar service worker
-  if ("serviceWorker" in navigator)
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  if ("serviceWorker" in navigator) {
+    if (import.meta && import.meta.env && import.meta.env.DEV) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch (_) {}
+    } else {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+  }
 
   await openDB();
 
-  // 🔄 SOLO sincronizamos maids si hay internet
   if (navigator.onLine) {
     try {
       const resp = await fetch("/api/maids");
@@ -29,17 +35,15 @@ async function bootstrap() {
 
     if (!u) return;
 
-    // 🛑 RECEPCIÓN SOLO FUNCIONA ONLINE
     if (u.toLowerCase() === "reception") {
       if (!navigator.onLine) {
         alert("Recepción solo funciona con internet.");
         return;
       }
-      location.href = "/reception.html";
+      location.href = "./reception.html";
       return;
     }
 
-    // 👇 MAID: funciona online y offline
     try {
       const maids = await getAll("maids").catch(() => []);
 
@@ -57,15 +61,13 @@ async function bootstrap() {
         return;
       }
 
-      // Validar contraseña (modo simple)
       if (!maid.password || String(maid.password) !== String(p)) {
         alert("Contraseña incorrecta");
         return;
       }
 
-      // Acceso correcto → Maid
       const encoded = encodeURIComponent(maid.id || maid.email);
-      location.href = `/maid.html?user=${encoded}`;
+      location.href = ./maid.html?user=${encoded};
 
     } catch (err) {
       console.error("Error login:", err);
