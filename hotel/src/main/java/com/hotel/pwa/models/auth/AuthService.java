@@ -34,7 +34,7 @@ public class AuthService {
             if(found == null) return new APIResponse("Usuario no econtrado", true, HttpStatus.NOT_FOUND);
 
             if(!PasswordEncoder.verifyPassword(payload.getPassword(), found.getPassword()))
-                return new APIResponse("Las contraseñas no coinciden", true, HttpStatus.BAD_REQUEST);
+                return new APIResponse("Usuario y/o contraseña incorrectos", true, HttpStatus.BAD_REQUEST);
 
             UserDetails ud = udService.loadUserByUsername(found.getUsername());
             String token = jwtUtils.genereteToken(ud);
