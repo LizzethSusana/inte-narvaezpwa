@@ -9,7 +9,8 @@ import {
   createRoom, 
   updateRoom, 
   createRoomAssignment, 
-  getUsers 
+  getUsers,
+  getRooms,
 } from '../../api.js'
 
 /**
@@ -74,10 +75,17 @@ export async function openRoomAddModal() {
         };
         
         const result = await createRoom(roomData);
-        
-        // 2. Si se seleccionó una camarera, crear la asignación
-        if (maidId && result.data) {
-          const roomId = result.data.id;
+
+        // Obtener id de la habitación (el backend no lo devuelve en data)
+        let roomId = result?.data?.id;
+        if (!roomId) {
+          const allRooms = await getRooms().catch(() => []);
+          const found = allRooms.find((r) => r.number === number);
+          roomId = found?.id || null;
+        }
+
+        // 2. Si se seleccionó una camarera y tenemos id de habitación, crear la asignación
+        if (maidId && roomId) {
           await createRoomAssignment({
             room: { id: roomId },
             user: { id: parseInt(maidId) }
@@ -86,7 +94,7 @@ export async function openRoomAddModal() {
 
         // 3. Guardar en IndexedDB para uso offline
         await put('rooms', {
-          id: result.data.id,
+          id: roomId || number,
           number: number,
           status: status,
           maid: maidId || null
