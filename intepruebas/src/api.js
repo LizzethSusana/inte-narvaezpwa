@@ -14,6 +14,24 @@ function getAuthToken() {
 }
 
 /**
+ * Decodifica el token JWT para ver su contenido
+ * @param {string} token 
+ * @returns {Object|null}
+ */
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    console.log("Token decodificado:", payload);
+    return payload;
+  } catch (e) {
+    console.error("Error al decodificar token:", e);
+    return null;
+  }
+}
+
+/**
  * Realiza una petición HTTP con manejo de errores
  * @param {string} url 
  * @param {Object} options 
@@ -100,11 +118,16 @@ export async function createRoom(roomData) {
  * @returns {Promise<Object>}
  */
 export async function updateRoom(roomData) {
+  console.log('=== updateRoom API ===');
+  console.log('Datos recibidos:', roomData);
+  console.log('ID:', roomData.id, 'Tipo:', typeof roomData.id);
+  
   try {
     const data = await fetchAPI("/rooms", {
       method: "PUT",
       body: JSON.stringify(roomData),
     });
+    console.log('Respuesta del backend:', data);
     return data;
   } catch (error) {
     console.error("Error al actualizar habitación:", error);
@@ -118,14 +141,32 @@ export async function updateRoom(roomData) {
  * @returns {Promise<Object>}
  */
 export async function deleteRoom(id) {
+  console.log("=== INICIO deleteRoom ===");
+  console.log("ID a eliminar:", id);
+  
+  const token = getAuthToken();
+  console.log("Token existe:", !!token);
+  console.log("Token (primeros 20 chars):", token?.substring(0, 20));
+  
+  if (token) {
+    const decoded = decodeJWT(token);
+    console.log("Usuario del token:", decoded?.sub);
+    console.log("Authorities en token:", decoded?.authorities);
+    console.log("Rol en authorities:", decoded?.authorities?.map(a => a.authority || a));
+  } else {
+    console.error("⚠️ NO HAY TOKEN - Esto causará 403");
+  }
+  
   try {
     const data = await fetchAPI("/rooms", {
       method: "DELETE",
       body: JSON.stringify({ id }),
     });
+    console.log("✅ Eliminación exitosa");
     return data;
   } catch (error) {
-    console.error("Error al eliminar habitación:", error);
+    console.error("❌ Error al eliminar habitación:", error);
+    console.error("Detalles del error:", error.message);
     throw error;
   }
 }

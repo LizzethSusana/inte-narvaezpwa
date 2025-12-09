@@ -18,14 +18,34 @@ import {
  */
 export async function openRoomAddModal() {
   try {
-    // Obtener usuarios (camareras) desde el backend
-    const allUsers = await getUsers().catch(() => []);
-    const maids = allUsers.filter(u => u.rol?.id === 2); // Filtrar solo camareras (rol id=2)
+    // Obtener camareras: primero IndexedDB, si está vacío y hay red, caer al backend
+    let maids = (await getAll('maids').catch(() => [])) || []
+    if (maids.length === 0 && navigator.onLine) {
+      const allUsers = await getUsers().catch(() => []);
+      maids = allUsers
+        .filter(u => u.rol?.id === 2)
+        .map(u => ({ id: u.id, fullname: u.fullname, username: u.username, active: u.active }))
+    }
     
-    const maidOptions = maids
+    // Eliminar duplicados, priorizando los que tienen ID numérico (backend)
+    const uniqueMaids = new Map();
+    for (const m of maids) {
+      const key = m.id || m.email || m.username;
+      if (!uniqueMaids.has(key)) {
+        uniqueMaids.set(key, m);
+      } else {
+        const existing = uniqueMaids.get(key);
+        if (typeof m.id === 'number' && typeof existing.id !== 'number') {
+          uniqueMaids.set(key, m);
+        }
+      }
+    }
+    const maidsList = Array.from(uniqueMaids.values());
+    
+    const maidOptions = maidsList
       .map((m) => {
         const id = m.id;
-        const label = m.fullname || m.username;
+        const label = m.name || m.fullname || m.username || m.email || 'Sin nombre';
         const disabled = !m.active ? 'disabled' : '';
         return `<option value="${id}" ${disabled}>${label}${!m.active ? ' (Inactivo)' : ''}</option>`;
       })
@@ -121,15 +141,35 @@ export async function openRoomAddModal() {
  */
 export async function openRoomEditModal(room) {
   try {
-    // Obtener usuarios (camareras) desde el backend
-    const allUsers = await getUsers().catch(() => []);
-    const maids = allUsers.filter(u => u.rol?.id === 2); // Filtrar solo camareras
+    // Obtener camareras: primero IndexedDB, si está vacío y hay red, caer al backend
+    let maids = (await getAll('maids').catch(() => [])) || []
+    if (maids.length === 0 && navigator.onLine) {
+      const allUsers = await getUsers().catch(() => []);
+      maids = allUsers
+        .filter(u => u.rol?.id === 2)
+        .map(u => ({ id: u.id, fullname: u.fullname, username: u.username, active: u.active }))
+    }
     
-    const maidOptions = maids
+    // Eliminar duplicados, priorizando los que tienen ID numérico (backend)
+    const uniqueMaids = new Map();
+    for (const m of maids) {
+      const key = m.id || m.email || m.username;
+      if (!uniqueMaids.has(key)) {
+        uniqueMaids.set(key, m);
+      } else {
+        const existing = uniqueMaids.get(key);
+        if (typeof m.id === 'number' && typeof existing.id !== 'number') {
+          uniqueMaids.set(key, m);
+        }
+      }
+    }
+    const maidsList = Array.from(uniqueMaids.values());
+    
+    const maidOptions = maidsList
       .map((m) => {
         const id = m.id;
-        const label = m.fullname || m.username;
-        const sel = room.maid && room.maid === id ? 'selected' : '';
+        const label = m.name || m.fullname || m.username || m.email || 'Sin nombre';
+        const sel = room.maid && String(room.maid) === String(id) ? 'selected' : '';
         const disabled = !m.active ? 'disabled' : '';
         return `<option value="${id}" ${sel} ${disabled}>${label}${!m.active ? ' (Inactivo)' : ''}</option>`;
       })
@@ -163,7 +203,7 @@ export async function openRoomEditModal(room) {
     if (statusEl) statusEl.value = room.status || 'disponible';
 
     const maidEl = document.getElementById('editRoomMaid');
-    if (maidEl) maidEl.value = room.maid || '';
+    if (maidEl) maidEl.value = room.maid ? String(room.maid) : '';
 
     document.getElementById('closeModal').onclick = () => hideModal();
 
@@ -177,6 +217,17 @@ export async function openRoomEditModal(room) {
         return;
       }
 
+      console.log('=== EDITAR HABITACIÓN ===');
+      console.log('Habitación original:', room);
+      console.log('Room ID:', room.id, 'Tipo:', typeof room.id);
+      
+      // Verificar que el ID sea válido
+      if (!room.id || typeof room.id !== 'number') {
+        alert('Error: La habitación no tiene un ID válido. No se puede actualizar.');
+        console.error('ID inválido:', room.id);
+        return;
+      }
+
       try {
         // 1. Actualizar la habitación
         const roomData = {
@@ -185,6 +236,7 @@ export async function openRoomEditModal(room) {
           status: newStatus
         };
         
+        console.log('Datos a enviar al backend:', roomData);
         await updateRoom(roomData);
         
         // 2. Si cambió la asignación de camarera, crear nueva asignación

@@ -7,6 +7,7 @@ import { MAIDS_PER_PAGE, MAID_STATUS } from '../shared/constants.js'
 import { getStatusKey, isMaidAvailable } from '../shared/utils.js'
 import { confirmAction } from '../shared/modal.js'
 import { openMaidAddModal, openMaidEditModal } from './maids-modal.js'
+import { deleteMaid } from '../../api-maid.js'
 
 let maidsPage = 0
 
@@ -16,10 +17,31 @@ let maidsPage = 0
  * @param {Array} maids
  */
 export async function renderMaids(maidsList, maids) {
+  console.log('renderMaids recibió:', maids)
+  
+  // Eliminar duplicados usando Map por ID o email
+  const uniqueMaidsMap = new Map();
+  for (const maid of maids) {
+    const key = maid.id || maid.email;
+    if (!uniqueMaidsMap.has(key)) {
+      uniqueMaidsMap.set(key, maid);
+    } else {
+      // Si ya existe, preferir el que tenga ID numérico (del backend)
+      const existing = uniqueMaidsMap.get(key);
+      if (typeof maid.id === 'number' && typeof existing.id !== 'number') {
+        uniqueMaidsMap.set(key, maid);
+      }
+    }
+  }
+  
+  const uniqueMaids = Array.from(uniqueMaidsMap.values());
+  console.log(`Camareras únicas después de eliminar duplicados: ${uniqueMaids.length} de ${maids.length}`);
+  
   maidsList.innerHTML = ''
-  const totalMaids = maids.length
+  const totalMaids = uniqueMaids.length
   const maidsStart = maidsPage * MAIDS_PER_PAGE
-  const maidsPageItems = maids.slice(maidsStart, maidsStart + MAIDS_PER_PAGE)
+  const maidsPageItems = uniqueMaids.slice(maidsStart, maidsStart + MAIDS_PER_PAGE)
+  console.log(`Mostrando ${maidsPageItems.length} camareras de ${totalMaids} total`)
 
   const maidsContainer = document.createElement('div')
   maidsContainer.className = 'maids-container'
@@ -109,16 +131,32 @@ function createDeleteButton(maid) {
     )
     if (!ok) return
 
-    const roomsAll = await getAll('rooms').catch(() => [])
-    for (const room of roomsAll) {
-      if (room.maid === (maid.id || maid.email)) {
-        room.maid = null
-        await put('rooms', room)
+    try {
+      // Primero eliminar del backend si hay conexión
+      if (navigator.onLine && maid.id) {
+        console.log('Eliminando camarera del backend:', maid.id)
+        await deleteMaid(maid.id)
+        console.log('Camarera eliminada del backend exitosamente')
       }
-    }
 
-    await del('maids', maid.id || maid.email)
-    location.reload()
+      // Quitar asignaciones de habitaciones
+      const roomsAll = await getAll('rooms').catch(() => [])
+      for (const room of roomsAll) {
+        if (room.maid === (maid.id || maid.email)) {
+          room.maid = null
+          await put('rooms', room)
+        }
+      }
+
+      // Eliminar de IndexedDB local
+      await del('maids', maid.id || maid.email)
+      
+      alert('Camarera eliminada exitosamente')
+      location.reload()
+    } catch (error) {
+      console.error('Error al eliminar camarera:', error)
+      alert('Error al eliminar camarera: ' + error.message)
+    }
   })
   return btn
 }

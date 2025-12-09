@@ -65,6 +65,8 @@ public class JwtUtils {
     //Esta función consume la funcion de crear solo para retornar
     public String genereteToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
+        // Agregamos las authorities (roles) al token
+        claims.put("authorities", userDetails.getAuthorities());
         return createToken(claims, userDetails.getUsername());
     }
 }

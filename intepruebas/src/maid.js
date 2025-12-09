@@ -1,4 +1,5 @@
 import { openDB, getAll, get, put } from "./idb.js";
+import { getRooms, getRoomAssignments } from "./api.js";
 
 // En desarrollo, desregistrar SW para evitar caché de estilos
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
@@ -124,7 +125,38 @@ function shouldShowRoom(room) {
 
 export async function render() {
   if (!layoutConfig) await loadLayoutConfig();
-  const rooms = (await getAll("rooms").catch(() => [])) || [];
+  
+  // Intentar obtener datos locales
+  let rooms = (await getAll("rooms").catch(() => [])) || [];
+  
+  // Si no hay datos locales y hay conexión, sincronizar desde el backend
+  if (rooms.length === 0 && navigator.onLine) {
+    console.log('IndexedDB vacío, sincronizando habitaciones desde backend...');
+    try {
+      const backendRooms = await getRooms();
+      
+      // Sincronizar asignaciones
+      const assignments = await getRoomAssignments();
+      
+      for (const room of backendRooms) {
+        // Buscar asignación de camarera
+        const assignment = assignments.find(a => a.room?.id === room.id);
+        
+        await put('rooms', {
+          id: room.id,
+          number: room.number,
+          status: room.status,
+          maid: assignment?.user?.id || null,
+        });
+      }
+      
+      // Volver a cargar después de sincronizar
+      rooms = (await getAll("rooms").catch(() => [])) || [];
+      console.log('Sincronización completada:', rooms.length, 'habitaciones');
+    } catch (error) {
+      console.error('Error al sincronizar desde backend:', error);
+    }
+  }
   
   // Solo renderizar el mapa de habitaciones
   renderSeatMap(rooms);
@@ -735,7 +767,47 @@ async function openReportModal(room) {
 }
 
 async function init() {
+  // Verificar si hay token de autenticación
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) {
+    console.warn('No hay token de autenticación, redirigiendo al login...');
+    alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+    location.href = './index.html';
+    return;
+  }
+  
   await openDB();
+  
+  // Sincronizar con backend al iniciar si hay conexión
+  if (navigator.onLine) {
+    console.log('Sincronizando datos desde backend al iniciar...');
+    try {
+      const backendRooms = await getRooms();
+      const assignments = await getRoomAssignments();
+      
+      for (const room of backendRooms) {
+        const assignment = assignments.find(a => a.room?.id === room.id);
+        
+        await put('rooms', {
+          id: room.id,
+          number: room.number,
+          status: room.status,
+          maid: assignment?.user?.id || null,
+        });
+      }
+      
+      console.log('Sincronización inicial completada');
+    } catch (error) {
+      console.error('Error en sincronización inicial:', error);
+      // Si el error es 403, redirigir al login
+      if (error.message && error.message.includes('403')) {
+        alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+        location.href = './index.html';
+        return;
+      }
+    }
+  }
+  
   // detectar cámara trasera al iniciar y cachear resultado (evita prompts repetidos)
   try {
     rearCameraAvailable = await hasRearCamera();

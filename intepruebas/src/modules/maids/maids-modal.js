@@ -5,7 +5,7 @@
 import { getAll, put } from '../../idb.js'
 import { MAID_STATUS } from '../shared/constants.js'
 import { showModal, hideModal, getModal } from '../shared/modal.js'
-import { createMaid } from '../../api-maid.js'
+import { createMaid, updateMaid } from '../../api-maid.js'
 
 /**
  * Abre el modal para agregar una nueva camarera
@@ -51,15 +51,14 @@ export async function openMaidAddModal() {
 
     try {
       // Crear en backend con rol MAID (id=2)
-      await createMaid({
+      const result = await createMaid({
         fullname: name,
         username: email,
         password,
       })
 
-      // Guardar en IndexedDB para offline
-      const record = { id: email, name, email, status, active: true }
-      await put('maids', record)
+      // NO guardar en IndexedDB aquí - dejar que la sincronización lo haga
+      // Esto evita duplicados (uno con email como ID, otro con ID numérico del backend)
 
       alert('Camarera creada exitosamente')
       hideModal()
@@ -121,66 +120,57 @@ export async function openMaidEditModal(maid) {
   document.getElementById('saveEditMaid').onclick = async () => {
     const name = document.getElementById('editMaidName').value.trim()
     const newEmail = document.getElementById('editMaidEmail').value.trim()
-    const newPassword = document.getElementById('editMaidPassword').value
+    const newPassword = document.getElementById('editMaidPassword').value.trim()
     const status = document.getElementById('editMaidStatus').value
 
     if (!name || !newEmail) return alert('Nombre y correo requeridos')
 
-    const oldId = maid.id || maid.email
-    const newId = newEmail
-    const finalPassword = newPassword && newPassword.trim() ? newPassword.trim() : maid.password
-
-    // Si cambió el correo
-    if (newId !== oldId) {
-      const allMaids = (await getAll('maids').catch(() => [])) || []
-      const exists = allMaids.find((x) => (x.id || x.email) === newId)
-      if (exists) return alert('Ya existe una camarera con ese correo')
-
-      const newRecord = {
-        ...maid,
-        id: newId,
-        email: newId,
-        name,
-        status,
+    try {
+      // Actualizar en el backend
+      const updatePayload = {
+        id: maid.id,
+        fullname: name,
+        username: newEmail,
+        active: maid.active !== false, // Mantener activo por defecto
+      }
+      
+      // Solo incluir password si se proporcionó uno nuevo
+      if (newPassword) {
+        updatePayload.password = newPassword
       }
 
-      if (finalPassword) {
-        newRecord.password = finalPassword
-      }
+      console.log('Actualizando camarera en backend:', updatePayload)
+      await updateMaid(updatePayload)
 
-      await put('maids', newRecord)
-
-      // Actualizar habitaciones
-      const roomsAll = await getAll('rooms').catch(() => [])
-      for (const room of roomsAll) {
-        if (room.maid === oldId) {
-          room.maid = newId
-          await put('rooms', room)
-        }
-      }
-
-      // Eliminar antiguo registro
-      const { del: delFn } = await import('../../idb.js')
-      await delFn('maids', oldId)
-    } else {
-      // Mismo ID
+      // Actualizar en IndexedDB local
       const updated = {
-        ...maid,
-        id: newId,
-        email: newId,
+        id: maid.id,
         name,
+        email: newEmail,
         status,
-      }
-
-      if (finalPassword) {
-        updated.password = finalPassword
+        active: updatePayload.active,
       }
 
       await put('maids', updated)
-    }
 
-    hideModal()
-    location.reload()
+      // Si cambió el email, actualizar las habitaciones asignadas
+      if (newEmail !== (maid.email || maid.username)) {
+        const roomsAll = await getAll('rooms').catch(() => [])
+        for (const room of roomsAll) {
+          if (room.maid === maid.id) {
+            room.maid = maid.id // Mantener el ID numérico
+            await put('rooms', room)
+          }
+        }
+      }
+
+      alert('Camarera actualizada exitosamente')
+      hideModal()
+      location.reload()
+    } catch (error) {
+      console.error('Error al actualizar camarera:', error)
+      alert('No se pudo actualizar la camarera: ' + error.message)
+    }
   }
 }
 

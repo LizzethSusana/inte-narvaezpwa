@@ -24,10 +24,16 @@ export async function renderRooms(roomsList, rooms, maids, filteredRooms = null)
   // Usar habitaciones filtradas si se proporcionan, sino usar todas
   const roomsToDisplay = filteredRooms || rooms
   
-  // Eliminar duplicados basado en room.id
-  const uniqueRooms = Array.from(
-    new Map(roomsToDisplay.map(r => [r.id, r])).values()
-  )
+  // Eliminar duplicados: primero por número (prioridad), luego por ID
+  const uniqueByNumber = new Map()
+  for (const room of roomsToDisplay) {
+    const key = room.number || room.id
+    // Solo agregar si no existe o si el nuevo tiene ID numérico (del backend)
+    if (!uniqueByNumber.has(key) || (typeof room.id === 'number' && typeof uniqueByNumber.get(key).id !== 'number')) {
+      uniqueByNumber.set(key, room)
+    }
+  }
+  const uniqueRooms = Array.from(uniqueByNumber.values())
   
   // Ordenar por número de habitación de forma natural
   const sortedRooms = uniqueRooms.sort((a, b) => {
@@ -212,13 +218,24 @@ function createRoomActions(room) {
     if (!ok) return
     
     try {
-      // Eliminar del backend si hay conexión
+      // Primero eliminar del backend si hay conexión
       if (navigator.onLine && room.id) {
-        await deleteRoom(room.id)
+        try {
+          await deleteRoom(room.id)
+          console.log('Habitación eliminada del backend exitosamente')
+        } catch (err) {
+          console.error('Error al eliminar del backend:', err)
+          if (err.message && err.message.includes('403')) {
+            alert('No tienes permisos para eliminar habitaciones. Solo usuarios con rol RECEPTION pueden realizar esta acción.')
+            return
+          }
+          alert('Error al eliminar del backend: ' + err.message + '. Se eliminará solo localmente.')
+        }
       }
       
       // Eliminar de IndexedDB
       await del('rooms', room.id)
+      alert('Habitación eliminada exitosamente')
       location.reload()
     } catch (error) {
       console.error('Error al eliminar habitación:', error)
@@ -316,47 +333,77 @@ export function setRoomsPage(page) {
  * @returns {Promise<number>} Número de habitaciones creadas
  */
 export async function ensureRoomsFromLayout(floors, roomsPerFloor) {
-  let existingRooms = []
+  // Obtener habitaciones existentes tanto del backend como locales
+  let backendRooms = []
+  let localRooms = []
+  
   if (navigator.onLine) {
-    existingRooms = await getRooms().catch(() => [])
-  } else {
-    existingRooms = (await getAll('rooms').catch(() => [])) || []
+    backendRooms = await getRooms().catch(() => [])
   }
-
-  const existingNumbers = new Set(
-    existingRooms
-      .map((r) => String(r.number || r.id))
-      .filter(Boolean)
-  )
-
+  localRooms = (await getAll('rooms').catch(() => [])) || []
+  
+  // Combinar y eliminar duplicados usando un Map por número de habitación
+  const allRoomsMap = new Map()
+  
+  // Primero agregar habitaciones del backend (tienen prioridad)
+  for (const room of backendRooms) {
+    allRoomsMap.set(room.number || room.id, room)
+  }
+  
+  // Luego agregar locales solo si no existen en backend
+  for (const room of localRooms) {
+    const key = room.number || room.id
+    if (!allRoomsMap.has(key)) {
+      allRoomsMap.set(key, room)
+    }
+  }
+  
+  const existingNumbers = new Set(allRoomsMap.keys())
   let created = 0
 
   for (let f = 1; f <= floors; f++) {
     for (let n = 1; n <= roomsPerFloor; n++) {
       const number = `${f}-${padRoom(n)}`
-      if (existingNumbers.has(number)) continue
+      
+      // Si ya existe, saltarla
+      if (existingNumbers.has(number)) {
+        continue
+      }
 
       let roomId = null
       if (navigator.onLine) {
         try {
           const resp = await createRoom({ number, status: 'disponible' })
           roomId = resp?.data?.id || null
+          
+          // Si se creó en backend, obtener el ID real
+          if (!roomId) {
+            const allRooms = await getRooms().catch(() => [])
+            const found = allRooms.find((r) => r.number === number)
+            roomId = found?.id || null
+          }
         } catch (err) {
           console.warn('No se pudo crear en backend, se guardará solo local:', err)
         }
       }
 
-      await put('rooms', {
-        id: roomId || number,
-        number,
-        status: 'disponible',
-        maid: null,
-        rented: false,
-      })
+      // Solo guardar localmente si no existe
+      const localExists = await get('rooms', roomId || number).catch(() => null)
+      if (!localExists) {
+        await put('rooms', {
+          id: roomId || number,
+          number,
+          status: 'disponible',
+          maid: null,
+          rented: false,
+        })
+        created++
+      }
 
       existingNumbers.add(number)
-      created++
     }
   }
+  
+  console.log(`ensureRoomsFromLayout: ${created} habitaciones nuevas creadas`)
   return created
 }

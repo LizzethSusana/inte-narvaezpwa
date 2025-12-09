@@ -128,6 +128,101 @@ async function saveLayoutSettings(floors, roomsPerFloor) {
 // =====================
 
 /**
+ * Limpia habitaciones duplicadas en IndexedDB
+ */
+async function cleanDuplicateRooms() {
+  try {
+    const allRooms = await getAll('rooms').catch(() => []) || [];
+    console.log(`Limpiando duplicados... Total habitaciones: ${allRooms.length}`);
+    
+    // Agrupar por número de habitación
+    const roomsByNumber = new Map();
+    
+    for (const room of allRooms) {
+      const number = room.number || room.id;
+      
+      if (!roomsByNumber.has(number)) {
+        roomsByNumber.set(number, []);
+      }
+      roomsByNumber.get(number).push(room);
+    }
+    
+    // Eliminar duplicados, manteniendo el que tiene ID numérico (del backend)
+    let duplicatesRemoved = 0;
+    for (const [number, roomGroup] of roomsByNumber.entries()) {
+      if (roomGroup.length > 1) {
+        // Ordenar: IDs numéricos primero (del backend)
+        roomGroup.sort((a, b) => {
+          const aIsNumeric = typeof a.id === 'number';
+          const bIsNumeric = typeof b.id === 'number';
+          if (aIsNumeric && !bIsNumeric) return -1;
+          if (!aIsNumeric && bIsNumeric) return 1;
+          return 0;
+        });
+        
+        // Mantener el primero, eliminar los demás
+        const toKeep = roomGroup[0];
+        for (let i = 1; i < roomGroup.length; i++) {
+          await del('rooms', roomGroup[i].id);
+          duplicatesRemoved++;
+          console.log(`Eliminado duplicado: ${roomGroup[i].id} (manteniendo ${toKeep.id})`);
+        }
+      }
+    }
+    
+    console.log(`${duplicatesRemoved} habitaciones duplicadas eliminadas`);
+  } catch (error) {
+    console.error('Error al limpiar duplicados:', error);
+  }
+}
+
+/**
+ * Limpia camareras duplicadas de IndexedDB
+ */
+async function cleanDuplicateMaids() {
+  try {
+    const allMaids = await getAll('maids').catch(() => []);
+    const maidsById = new Map();
+    
+    for (const maid of allMaids) {
+      const key = maid.id || maid.email;
+      
+      if (!maidsById.has(key)) {
+        maidsById.set(key, []);
+      }
+      maidsById.get(key).push(maid);
+    }
+    
+    // Eliminar duplicados, manteniendo el que tiene ID numérico (del backend)
+    let duplicatesRemoved = 0;
+    for (const [key, maidGroup] of maidsById.entries()) {
+      if (maidGroup.length > 1) {
+        // Ordenar: IDs numéricos primero (del backend)
+        maidGroup.sort((a, b) => {
+          const aIsNumeric = typeof a.id === 'number';
+          const bIsNumeric = typeof b.id === 'number';
+          if (aIsNumeric && !bIsNumeric) return -1;
+          if (!aIsNumeric && bIsNumeric) return 1;
+          return 0;
+        });
+        
+        // Mantener el primero, eliminar los demás
+        const toKeep = maidGroup[0];
+        for (let i = 1; i < maidGroup.length; i++) {
+          await del('maids', maidGroup[i].id || maidGroup[i].email);
+          duplicatesRemoved++;
+          console.log(`Eliminada camarera duplicada: ${maidGroup[i].id || maidGroup[i].email} (manteniendo ${toKeep.id})`);
+        }
+      }
+    }
+    
+    console.log(`${duplicatesRemoved} camareras duplicadas eliminadas`);
+  } catch (error) {
+    console.error('Error al limpiar camareras duplicadas:', error);
+  }
+}
+
+/**
  * Sincroniza datos desde el backend
  */
 async function syncDataFromBackend() {
@@ -139,25 +234,57 @@ async function syncDataFromBackend() {
   try {
     // Sincronizar habitaciones
     const rooms = await getRooms();
+    console.log(`Sincronizando ${rooms.length} habitaciones desde backend...`);
+    
+    // Primero obtener habitaciones locales existentes
+    const localRooms = await getAll('rooms').catch(() => []) || [];
+    const localRoomsMap = new Map(localRooms.map(r => [r.number || r.id, r]));
+    
     for (const room of rooms) {
+      // Verificar si ya existe localmente por número
+      const existingLocal = localRoomsMap.get(room.number);
+      
       await put('rooms', {
         id: room.id,
         number: room.number,
         status: room.status,
+        // Preservar asignación de camarera local si existe
+        maid: existingLocal?.maid || null,
+        rented: existingLocal?.rented || false,
       });
     }
+    console.log(`${rooms.length} habitaciones sincronizadas`);
+    
+    // Limpiar duplicados de IndexedDB
+    await cleanDuplicateRooms();
 
     // Sincronizar usuarios (camareras)
     const users = await getUsers();
+    console.log('Usuarios obtenidos del backend:', users);
     const maids = users.filter(u => u.rol?.id === 2); // Solo camareras (ID=2)
+    console.log('Camareras filtradas (rol.id === 2):', maids);
+    
+    // Usar Map para eliminar duplicados por ID
+    const uniqueMaids = new Map();
     for (const maid of maids) {
-      await put('maids', {
-        id: maid.id,
-        name: maid.fullname,
-        email: maid.username,
-        active: maid.active,
-      });
+      if (!uniqueMaids.has(maid.id)) {
+        uniqueMaids.set(maid.id, {
+          id: maid.id,
+          name: maid.fullname,
+          email: maid.username,
+          active: maid.active,
+        });
+      }
     }
+    
+    // Guardar solo camareras únicas
+    for (const maid of uniqueMaids.values()) {
+      await put('maids', maid);
+    }
+    console.log(`${uniqueMaids.size} camareras únicas sincronizadas en IndexedDB`);
+    
+    // Limpiar duplicados después de sincronizar
+    await cleanDuplicateMaids();
 
     // Sincronizar asignaciones
     const assignments = await getRoomAssignments();
@@ -198,14 +325,35 @@ async function syncDataFromBackend() {
  */
 async function renderAll() {
   try {
-    const rooms = (await getAll('rooms').catch(() => [])) || []
-    const maids = (await getAll('maids').catch(() => [])) || []
-    const reports = (await getAll('reports').catch(() => [])) || []
+    // Limpiar duplicados existentes ANTES de renderizar
+    await cleanDuplicateRooms();
+    await cleanDuplicateMaids();
+    
+    // Primero intentar obtener datos locales
+    let rooms = (await getAll('rooms').catch(() => [])) || []
+    let maids = (await getAll('maids').catch(() => [])) || []
+    let reports = (await getAll('reports').catch(() => [])) || []
+
+    console.log('Datos locales obtenidos:', { rooms: rooms.length, maids: maids.length, reports: reports.length })
+
+    // Si no hay datos locales y hay conexión, sincronizar desde el backend
+    if ((rooms.length === 0 || maids.length === 0) && navigator.onLine) {
+      console.log('IndexedDB vacío, sincronizando desde backend...')
+      await syncDataFromBackend()
+      
+      // Volver a cargar los datos después de sincronizar
+      rooms = (await getAll('rooms').catch(() => [])) || []
+      maids = (await getAll('maids').catch(() => [])) || []
+      reports = (await getAll('reports').catch(() => [])) || []
+      
+      console.log('Datos después de sincronizar:', { rooms: rooms.length, maids: maids.length, reports: reports.length })
+    }
 
     // Guardar en variables globales para la búsqueda
     allRooms = rooms
     allMaids = maids
 
+    console.log('Renderizando camareras:', maids)
     if (roomsList) await renderRooms(roomsList, rooms, maids)
     if (maidsList) await renderMaids(maidsList, maids)
     if (reportsEl) await renderReports(reportsEl, reports, maids)
@@ -431,13 +579,40 @@ function scrollToSection(section) {
 // =====================
 
 ;(async () => {
-  await loadLayoutSettings()
-  
-  // Sincronizar datos desde el backend
-  await syncDataFromBackend()
-  
-  if (layoutSettings?.floors && layoutSettings?.roomsPerFloor) {
-    await ensureRoomsFromLayout(layoutSettings.floors, layoutSettings.roomsPerFloor)
+  try {
+    // Verificar si hay token de autenticación
+    const authToken = localStorage.getItem('authToken')
+    if (!authToken) {
+      console.warn('No hay token de autenticación, redirigiendo al login...')
+      alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.')
+      window.location.href = './index.html'
+      return
+    }
+    
+    await loadLayoutSettings()
+    
+    // Siempre sincronizar datos desde el backend al cargar la página
+    console.log('Iniciando sincronización con backend...')
+    await syncDataFromBackend()
+    
+    // Generar habitaciones según el layout guardado
+    if (layoutSettings?.floors && layoutSettings?.roomsPerFloor) {
+      await ensureRoomsFromLayout(layoutSettings.floors, layoutSettings.roomsPerFloor)
+    }
+    
+    // Renderizar todos los datos
+    await renderAll()
+    
+    console.log('Aplicación inicializada correctamente')
+  } catch (error) {
+    console.error('Error al inicializar la aplicación:', error)
+    // Si el error es 403, redirigir al login
+    if (error.message && error.message.includes('403')) {
+      alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.')
+      window.location.href = './index.html'
+      return
+    }
+    // Intentar renderizar con datos locales aunque haya error
+    await renderAll()
   }
-  await renderAll()
 })()

@@ -61,3 +61,11 @@ export async function updateMaid({ id, fullname, username, password, active }) {
     body: JSON.stringify(payload),
   });
 }
+
+// Elimina una camarera
+export async function deleteMaid(id) {
+  return request("/user", {
+    method: "DELETE",
+    body: JSON.stringify({ id }),
+  });
+}

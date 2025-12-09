@@ -59,6 +59,12 @@ public class RoomService {
     @Transactional(rollbackFor = {SQLException.class, Exception.class})
     public APIResponse save(Room payload){
         try {
+            // Validar que no exista otra habitación con el mismo número
+            Room existingRoom = roomRepository.findByNumber(payload.getNumber()).orElse(null);
+            if (existingRoom != null) {
+                return new APIResponse("Ya existe una habitación con el número " + payload.getNumber(), true, HttpStatus.BAD_REQUEST);
+            }
+            
             roomRepository.save(payload);
             return new APIResponse("Operación exitosa", false, HttpStatus.CREATED);
         }catch (Exception e){
@@ -73,6 +79,13 @@ public class RoomService {
             if (roomRepository.findById(payload.getId()).isEmpty()){
                 return new APIResponse("Habitacion no encontrada", true, HttpStatus.NOT_FOUND);
             }
+            
+            // Validar que no exista otra habitación con el mismo número (excepto la actual)
+            Room existingRoom = roomRepository.findByNumber(payload.getNumber()).orElse(null);
+            if (existingRoom != null && !existingRoom.getId().equals(payload.getId())) {
+                return new APIResponse("Ya existe otra habitación con el número " + payload.getNumber(), true, HttpStatus.BAD_REQUEST);
+            }
+            
             roomRepository.save(payload);
             return new APIResponse("Operación exitosa", false, HttpStatus.OK);
         }catch (Exception e){
