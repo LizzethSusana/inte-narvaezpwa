@@ -7,7 +7,7 @@ import { ITEMS_PER_PAGE, ROOM_STATUS } from '../shared/constants.js'
 import { getStatusKey, padRoom } from '../shared/utils.js'
 import { confirmAction, showModal, hideModal, getModal } from '../shared/modal.js'
 import { openRoomEditModal, openRoomAddModal } from './rooms-modal.js'
-import { deleteRoom, createRoomAssignment } from '../../api.js'
+import { deleteRoom, createRoomAssignment, createRoom, getRooms } from '../../api.js'
 
 let roomsPage = 0
 
@@ -16,12 +16,41 @@ let roomsPage = 0
  * @param {HTMLElement} roomsList
  * @param {Array} rooms
  * @param {Array} maids
+ * @param {Array} filteredRooms - Habitaciones filtradas (opcional)
  */
-export async function renderRooms(roomsList, rooms, maids) {
+export async function renderRooms(roomsList, rooms, maids, filteredRooms = null) {
   roomsList.innerHTML = ''
-  const totalRooms = rooms.length
+  
+  // Usar habitaciones filtradas si se proporcionan, sino usar todas
+  const roomsToDisplay = filteredRooms || rooms
+  
+  // Eliminar duplicados basado en room.id
+  const uniqueRooms = Array.from(
+    new Map(roomsToDisplay.map(r => [r.id, r])).values()
+  )
+  
+  // Ordenar por número de habitación de forma natural
+  const sortedRooms = uniqueRooms.sort((a, b) => {
+    const numA = String(a.number || a.id)
+    const numB = String(b.number || b.id)
+    
+    // Separar piso y número
+    const matchA = numA.match(/(\\d+)-(\\d+)/)
+    const matchB = numB.match(/(\\d+)-(\\d+)/)
+    
+    if (matchA && matchB) {
+      const floorA = parseInt(matchA[1])
+      const floorB = parseInt(matchB[1])
+      if (floorA !== floorB) return floorA - floorB
+      return parseInt(matchA[2]) - parseInt(matchB[2])
+    }
+    
+    return numA.localeCompare(numB, undefined, { numeric: true })
+  })
+  
+  const totalRooms = sortedRooms.length
   const roomsStart = roomsPage * ITEMS_PER_PAGE
-  const roomsPageItems = rooms.slice(roomsStart, roomsStart + ITEMS_PER_PAGE)
+  const roomsPageItems = sortedRooms.slice(roomsStart, roomsStart + ITEMS_PER_PAGE)
 
   for (const r of roomsPageItems) {
     const card = createRoomCard(r, maids)
@@ -226,24 +255,30 @@ function createRoomActions(room) {
  * @param {number} roomsStart
  */
 function createRoomsPaginator(roomsList, totalRooms, roomsStart) {
-  const roomsPager = document.createElement('div')
-  roomsPager.className = 'pager'
+  const roomsPagerEl = document.getElementById('roomsPager')
+  if (!roomsPagerEl) return
+
+  roomsPagerEl.innerHTML = ''
 
   const prevRooms = document.createElement('button')
   prevRooms.textContent = '←'
   prevRooms.disabled = roomsPage === 0
-  prevRooms.addEventListener('click', () => {
+  prevRooms.addEventListener('click', async () => {
     roomsPage = Math.max(0, roomsPage - 1)
-    location.reload()
+    const rooms = (await getAll('rooms').catch(() => [])) || []
+    const maids = (await getAll('maids').catch(() => [])) || []
+    await renderRooms(roomsList, rooms, maids)
   })
 
   const nextRooms = document.createElement('button')
   nextRooms.textContent = '→'
   nextRooms.disabled = roomsStart + ITEMS_PER_PAGE >= totalRooms
-  nextRooms.addEventListener('click', () => {
+  nextRooms.addEventListener('click', async () => {
     if (roomsStart + ITEMS_PER_PAGE < totalRooms) {
       roomsPage++
-      location.reload()
+      const rooms = (await getAll('rooms').catch(() => [])) || []
+      const maids = (await getAll('maids').catch(() => [])) || []
+      await renderRooms(roomsList, rooms, maids)
     }
   })
 
@@ -253,10 +288,9 @@ function createRoomsPaginator(roomsList, totalRooms, roomsStart) {
     Math.ceil(totalRooms / ITEMS_PER_PAGE)
   )}`
 
-  roomsPager.appendChild(prevRooms)
-  roomsPager.appendChild(infoRooms)
-  roomsPager.appendChild(nextRooms)
-  roomsList.parentNode.insertBefore(roomsPager, roomsList.nextSibling)
+  roomsPagerEl.appendChild(prevRooms)
+  roomsPagerEl.appendChild(infoRooms)
+  roomsPagerEl.appendChild(nextRooms)
 }
 
 /**
@@ -282,16 +316,45 @@ export function setRoomsPage(page) {
  * @returns {Promise<number>} Número de habitaciones creadas
  */
 export async function ensureRoomsFromLayout(floors, roomsPerFloor) {
-  const rooms = (await getAll('rooms').catch(() => [])) || []
-  const existing = new Set(rooms.map((r) => String(r.id)))
+  let existingRooms = []
+  if (navigator.onLine) {
+    existingRooms = await getRooms().catch(() => [])
+  } else {
+    existingRooms = (await getAll('rooms').catch(() => [])) || []
+  }
+
+  const existingNumbers = new Set(
+    existingRooms
+      .map((r) => String(r.number || r.id))
+      .filter(Boolean)
+  )
+
   let created = 0
 
   for (let f = 1; f <= floors; f++) {
     for (let n = 1; n <= roomsPerFloor; n++) {
-      const id = `${f}-${padRoom(n)}`
-      if (existing.has(id)) continue
-      const room = { id, status: 'Limpia', maid: null, rented: false }
-      await put('rooms', room)
+      const number = `${f}-${padRoom(n)}`
+      if (existingNumbers.has(number)) continue
+
+      let roomId = null
+      if (navigator.onLine) {
+        try {
+          const resp = await createRoom({ number, status: 'disponible' })
+          roomId = resp?.data?.id || null
+        } catch (err) {
+          console.warn('No se pudo crear en backend, se guardará solo local:', err)
+        }
+      }
+
+      await put('rooms', {
+        id: roomId || number,
+        number,
+        status: 'disponible',
+        maid: null,
+        rented: false,
+      })
+
+      existingNumbers.add(number)
       created++
     }
   }

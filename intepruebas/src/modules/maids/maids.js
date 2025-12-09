@@ -130,24 +130,28 @@ function createDeleteButton(maid) {
  * @param {number} maidsStart
  */
 function createMaidsPaginator(maidsList, totalMaids, maidsStart) {
-  const maidsPager = document.createElement('div')
-  maidsPager.className = 'pager'
+  const maidsPagerEl = document.getElementById('maidsPager')
+  if (!maidsPagerEl) return
+
+  maidsPagerEl.innerHTML = ''
 
   const prevM = document.createElement('button')
   prevM.textContent = '←'
   prevM.disabled = maidsPage === 0
-  prevM.addEventListener('click', () => {
+  prevM.addEventListener('click', async () => {
     maidsPage = Math.max(0, maidsPage - 1)
-    location.reload()
+    const maids = (await getAll('maids').catch(() => [])) || []
+    await renderMaids(maidsList, maids)
   })
 
   const nextM = document.createElement('button')
   nextM.textContent = '→'
   nextM.disabled = maidsStart + MAIDS_PER_PAGE >= totalMaids
-  nextM.addEventListener('click', () => {
+  nextM.addEventListener('click', async () => {
     if (maidsStart + MAIDS_PER_PAGE < totalMaids) {
       maidsPage++
-      location.reload()
+      const maids = (await getAll('maids').catch(() => [])) || []
+      await renderMaids(maidsList, maids)
     }
   })
 
@@ -157,10 +161,9 @@ function createMaidsPaginator(maidsList, totalMaids, maidsStart) {
     Math.ceil(totalMaids / MAIDS_PER_PAGE)
   )}`
 
-  maidsPager.appendChild(prevM)
-  maidsPager.appendChild(infoM)
-  maidsPager.appendChild(nextM)
-  maidsList.parentNode.insertBefore(maidsPager, maidsList.nextSibling)
+  maidsPagerEl.appendChild(prevM)
+  maidsPagerEl.appendChild(infoM)
+  maidsPagerEl.appendChild(nextM)
 }
 
 /**

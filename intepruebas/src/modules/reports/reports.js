@@ -146,18 +146,22 @@ function createReportsPaginator(reportsEl, totalReports, reportsStart) {
   const prevReports = document.createElement('button')
   prevReports.textContent = '←'
   prevReports.disabled = reportsPage === 0
-  prevReports.addEventListener('click', () => {
+  prevReports.addEventListener('click', async () => {
     reportsPage = Math.max(0, reportsPage - 1)
-    location.reload()
+    const reports = (await getAll('reports').catch(() => [])) || []
+    const maids = (await getAll('maids').catch(() => [])) || []
+    await renderReports(reportsEl, reports, maids)
   })
 
   const nextReports = document.createElement('button')
   nextReports.textContent = '→'
   nextReports.disabled = reportsStart + REPORTS_PER_PAGE >= totalReports
-  nextReports.addEventListener('click', () => {
+  nextReports.addEventListener('click', async () => {
     if (reportsStart + REPORTS_PER_PAGE < totalReports) {
       reportsPage++
-      location.reload()
+      const reports = (await getAll('reports').catch(() => [])) || []
+      const maids = (await getAll('maids').catch(() => [])) || []
+      await renderReports(reportsEl, reports, maids)
     }
   })
 
