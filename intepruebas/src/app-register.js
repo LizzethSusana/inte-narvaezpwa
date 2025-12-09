@@ -48,6 +48,37 @@ async function bootstrap() {
     }
   };
 
+  const showSuccessModal = (message) => {
+    // Evitar duplicados
+    const existing = document.getElementById("registerSuccessModal");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "registerSuccessModal";
+    overlay.className = "modal-overlay show";
+
+    overlay.innerHTML = `
+      <div class="modal-card">
+        <h3>Registro exitoso</h3>
+        <p>${message}</p>
+        <div class="modal-actions">
+          <button id="goToLogin" class="btn-primary">Ir al login</button>
+          <button id="closeSuccessModal" class="btn-secondary">Cerrar</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const removeModal = () => overlay.remove();
+
+    document.getElementById("goToLogin").onclick = () => {
+      removeModal();
+      window.location.href = "./index.html";
+    };
+    document.getElementById("closeSuccessModal").onclick = removeModal;
+  };
+
   // Toggle para mostrar/ocultar contraseña
   if (togglePasswordBtn && passwordInput) {
     const eyeIcon = document.getElementById("eyeIcon");
@@ -128,21 +159,14 @@ async function bootstrap() {
 
       const data = await response.json();
 
-      if (!response.ok || data.error) {
+      if (!response.ok) {
         showError(data.message || "Error al registrar usuario");
         return;
       }
 
-      // Registro exitoso
-      showSuccess("¡Registro exitoso! Redirigiendo al login...");
-      
-      // Limpiar el formulario
+      // Registro exitoso (ignoramos data.error porque el backend la marca mal en 201)
       registerForm.reset();
-
-      // Redirigir al login después de 2 segundos
-      setTimeout(() => {
-        window.location.href = "./index.html";
-      }, 2000);
+      showSuccessModal("Usuario registrado correctamente");
 
     } catch (err) {
       console.error("Error al registrar:", err);

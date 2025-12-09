@@ -222,6 +222,67 @@ button:hover {
   transform: translateY(-2px);
 }
 
+/* ----- Modal de éxito registro ----- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 1rem;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal-card {
+  background: #fff;
+  color: #333;
+  border-radius: 12px;
+  padding: 1.6rem;
+  max-width: 360px;
+  width: 100%;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  text-align: center;
+}
+
+.modal-card h3 {
+  margin-bottom: 0.6rem;
+  color: #1f1f1f;
+}
+
+.modal-card p {
+  margin-bottom: 1.2rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.btn-primary,
+.btn-secondary {
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
 /* Medidas móviles */
 @media (max-width: 480px) {
   .login-card {
