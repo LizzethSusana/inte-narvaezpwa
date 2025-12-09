@@ -51,7 +51,7 @@ function createRoomCard(room, maids) {
   badge.textContent = room.status || 'Limpia'
 
   const h3 = document.createElement('h3')
-  h3.textContent = `Hab ${room.id}`
+  h3.textContent = `Hab ${room.number || room.id}`
 
   info.appendChild(h3)
   info.appendChild(badge)
@@ -134,9 +134,9 @@ function createMaidSelector(room, maids) {
     
     try {
       // Crear asignación en el backend si hay conexión
-      if (navigator.onLine && room.id && selected) {
+      if (navigator.onLine && (room.id || room.number) && selected) {
         await createRoomAssignment({
-          room: { id: room.id },
+          room: { id: room.id || room.number },
           user: { id: parseInt(selected) }
         })
       }
@@ -206,7 +206,7 @@ function createRoomActions(room) {
     btn.title = 'Habilitar habitación (se marcará como Sucio)'
     btn.addEventListener('click', async () => {
       const ok = await confirmAction(
-        `¿Habilitar la habitación ${room.id}? Se marcará como "Sucio".`
+        `¿Habilitar la habitación ${room.number || room.id}? Se marcará como "Sucio".`
       )
       if (!ok) return
       room.status = ROOM_STATUS.DIRTY
