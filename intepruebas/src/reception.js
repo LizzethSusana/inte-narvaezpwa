@@ -11,6 +11,7 @@ import { renderReports } from './modules/reports/reports.js'
 import { openRoomAddModal } from './modules/rooms/rooms-modal.js'
 import { openMaidAddModal } from './modules/maids/maids-modal.js'
 import { openReportModal } from './modules/reports/reports-modal.js'
+import { getRooms, getUsers, getRoomAssignments, getReports } from './api.js'
 
 // =====================
 // DESREGISTRAR SW EN DESARROLLO
@@ -81,6 +82,72 @@ async function saveLayoutSettings(floors, roomsPerFloor) {
 // =====================
 // FUNCIONES DE RENDERIZADO
 // =====================
+
+/**
+ * Sincroniza datos desde el backend
+ */
+async function syncDataFromBackend() {
+  if (!navigator.onLine) {
+    console.log('Sin conexión - usando datos locales');
+    return;
+  }
+
+  try {
+    // Sincronizar habitaciones
+    const rooms = await getRooms();
+    for (const room of rooms) {
+      await put('rooms', {
+        id: room.id,
+        number: room.number,
+        status: room.status,
+      });
+    }
+
+    // Sincronizar usuarios (camareras)
+    const users = await getUsers();
+    const maids = users.filter(u => u.rol?.id === 2); // Solo camareras (ID=2)
+    for (const maid of maids) {
+      await put('maids', {
+        id: maid.id,
+        name: maid.fullname,
+        email: maid.username,
+        active: maid.active,
+      });
+    }
+
+    // Sincronizar asignaciones
+    const assignments = await getRoomAssignments();
+    for (const assignment of assignments) {
+      // Actualizar la habitación con la asignación de camarera
+      if (assignment.room && assignment.user) {
+        const room = await get('rooms', assignment.room.id);
+        if (room) {
+          room.maid = assignment.user.id;
+          await put('rooms', room);
+        }
+      }
+    }
+
+    // Sincronizar reportes
+    const reports = await getReports();
+    for (const report of reports) {
+      await put('reports', {
+        id: report.id,
+        description: report.description,
+        photo1: report.photo1,
+        photo2: report.photo2,
+        photo3: report.photo3,
+        room: report.room,
+        user: report.user,
+        createdAt: report.createdAt,
+      });
+    }
+
+    console.log('Datos sincronizados correctamente');
+  } catch (error) {
+    console.error('Error al sincronizar datos:', error);
+  }
+}
 
 /**
  * Renderiza todos los datos (habitaciones, camareras, reportes)
@@ -186,6 +253,10 @@ function scrollToSection(section) {
 
 ;(async () => {
   await loadLayoutSettings()
+  
+  // Sincronizar datos desde el backend
+  await syncDataFromBackend()
+  
   if (layoutSettings?.floors && layoutSettings?.roomsPerFloor) {
     await ensureRoomsFromLayout(layoutSettings.floors, layoutSettings.roomsPerFloor)
   }

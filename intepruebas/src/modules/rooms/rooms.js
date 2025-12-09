@@ -7,6 +7,7 @@ import { ITEMS_PER_PAGE, ROOM_STATUS } from '../shared/constants.js'
 import { getStatusKey, padRoom } from '../shared/utils.js'
 import { confirmAction, showModal, hideModal, getModal } from '../shared/modal.js'
 import { openRoomEditModal, openRoomAddModal } from './rooms-modal.js'
+import { deleteRoom, createRoomAssignment } from '../../api.js'
 
 let roomsPage = 0
 
@@ -130,9 +131,24 @@ function createMaidSelector(room, maids) {
       sel.value = room.maid || ''
       return
     }
-    room.maid = selected
-    await put('rooms', room)
-    location.reload()
+    
+    try {
+      // Crear asignación en el backend si hay conexión
+      if (navigator.onLine && room.id && selected) {
+        await createRoomAssignment({
+          room: { id: room.id },
+          user: { id: parseInt(selected) }
+        })
+      }
+      
+      room.maid = selected
+      await put('rooms', room)
+      location.reload()
+    } catch (error) {
+      console.error('Error al asignar camarera:', error)
+      alert('Error al asignar camarera: ' + error.message)
+      sel.value = room.maid || ''
+    }
   })
 
   assigned.appendChild(sel)
@@ -154,6 +170,33 @@ function createRoomActions(room) {
   btnEditRoom.title = 'Editar habitación'
   btnEditRoom.addEventListener('click', () => openRoomEditModal(room))
   actions.appendChild(btnEditRoom)
+
+  // Botón eliminar habitación
+  const btnDeleteRoom = document.createElement('button')
+  btnDeleteRoom.className = 'btn btn-sm btn-danger'
+  btnDeleteRoom.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>'
+  btnDeleteRoom.title = 'Eliminar habitación'
+  btnDeleteRoom.addEventListener('click', async () => {
+    const ok = await confirmAction(
+      `¿Estás seguro de eliminar la habitación ${room.number || room.id}?`
+    )
+    if (!ok) return
+    
+    try {
+      // Eliminar del backend si hay conexión
+      if (navigator.onLine && room.id) {
+        await deleteRoom(room.id)
+      }
+      
+      // Eliminar de IndexedDB
+      await del('rooms', room.id)
+      location.reload()
+    } catch (error) {
+      console.error('Error al eliminar habitación:', error)
+      alert('Error al eliminar habitación: ' + error.message)
+    }
+  })
+  actions.appendChild(btnDeleteRoom)
 
   // Botón habilitar si está bloqueada
   if (getStatusKey(room.status) === 'blocked') {

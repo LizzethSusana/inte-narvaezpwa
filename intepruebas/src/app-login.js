@@ -103,9 +103,48 @@ async function bootstrap() {
         localStorage.setItem("authToken", data.data);
         localStorage.setItem("username", username);
         
-        // Redirigir según el rol del usuario
-        // Por ahora redirigir a reception (puedes ajustar según el rol)
-        location.href = "./reception.html";
+        // Obtener datos del usuario para verificar su rol
+        try {
+          const userResponse = await fetch(`${API_BASE}/user`, {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${data.data}`,
+              "Content-Type": "application/json"
+            }
+          });
+
+          const userData = await userResponse.json();
+          
+          if (userData.data && Array.isArray(userData.data)) {
+            // Buscar el usuario actual por username
+            const currentUser = userData.data.find(u => u.username === username);
+            
+            if (currentUser) {
+              // Guardar información del usuario
+              localStorage.setItem("userId", currentUser.id);
+              localStorage.setItem("userRole", currentUser.rol?.id || "");
+              
+              // Redirigir según el rol
+              if (currentUser.rol?.id === 2) {
+                // MAID (Camarera) - id 2
+                const encoded = encodeURIComponent(currentUser.id);
+                location.href = `./maid.html?user=${encoded}`;
+              } else {
+                // RECEPTION (Recepcionista) - id 1 o cualquier otro
+                location.href = "./reception.html";
+              }
+              return;
+            }
+          }
+          
+          // Si no se encontró el usuario, redirigir a reception por defecto
+          location.href = "./reception.html";
+          
+        } catch (userError) {
+          console.error("Error al obtener datos del usuario:", userError);
+          // En caso de error, redirigir a reception por defecto
+          location.href = "./reception.html";
+        }
       } else {
         showError("Error al iniciar sesión");
       }

@@ -5,6 +5,7 @@
 import { getAll, put } from '../../idb.js'
 import { MAID_STATUS } from '../shared/constants.js'
 import { showModal, hideModal, getModal } from '../shared/modal.js'
+import { createMaid } from '../../api-maid.js'
 
 /**
  * Abre el modal para agregar una nueva camarera
@@ -46,17 +47,27 @@ export async function openMaidAddModal() {
     const status = document.getElementById('maidStatus').value || MAID_STATUS.AVAILABLE
 
     if (!email || !name) return alert('Nombre y correo requeridos')
+    if (!password) return alert('La contraseña es requerida')
 
-    const id = email
-    const record = { id, name, email, status }
+    try {
+      // Crear en backend con rol MAID (id=2)
+      await createMaid({
+        fullname: name,
+        username: email,
+        password,
+      })
 
-    if (password) {
-      record.password = password
+      // Guardar en IndexedDB para offline
+      const record = { id: email, name, email, status, active: true }
+      await put('maids', record)
+
+      alert('Camarera creada exitosamente')
+      hideModal()
+      location.reload()
+    } catch (error) {
+      console.error('Error al crear camarera:', error)
+      alert('No se pudo crear la camarera: ' + error.message)
     }
-
-    await put('maids', record)
-    hideModal()
-    location.reload()
   }
 }
 
