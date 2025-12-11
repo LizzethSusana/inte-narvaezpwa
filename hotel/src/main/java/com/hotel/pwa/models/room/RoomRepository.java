@@ -1,6 +1,7 @@
 package com.hotel.pwa.models.room;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,5 +11,11 @@ import java.util.Optional;
 public interface RoomRepository extends JpaRepository<Room, Long> {
     
     Optional<Room> findByNumber(String number);
+    
+    @Query("SELECT r FROM Room r LEFT JOIN FETCH r.lastModifiedBy")
+    List<Room> findAllWithUser();
+    
+    @Query("SELECT r FROM Room r LEFT JOIN FETCH r.lastModifiedBy WHERE r.id = :id")
+    Optional<Room> findByIdWithUser(Long id);
 
 }

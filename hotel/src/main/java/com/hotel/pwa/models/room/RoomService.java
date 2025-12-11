@@ -1,6 +1,9 @@
 package com.hotel.pwa.models.room;
 
 import com.hotel.pwa.models.room.dto.RoomResponseDTO;
+import com.hotel.pwa.models.room.dto.UpdateRoomDTO;
+import com.hotel.pwa.models.user.BeanUser;
+import com.hotel.pwa.models.user.UserRepository;
 import com.hotel.pwa.utils.APIResponse;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
@@ -20,16 +23,21 @@ public class RoomService {
 
     @Autowired
     private RoomRepository roomRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public APIResponse findAll(){
-        List<Room> rooms = roomRepository.findAll();
+        List<Room> rooms = roomRepository.findAllWithUser();
         
         List<RoomResponseDTO> responseDTOs = rooms.stream()
                 .map(room -> new RoomResponseDTO(
                         room.getId(),
                         room.getNumber(),
-                        room.getStatus()
+                        room.getStatus(),
+                        room.getLastModifiedBy() != null ? room.getLastModifiedBy().getId() : null,
+                        room.getLastModifiedBy() != null ? room.getLastModifiedBy().getFullname() : null
                 ))
                 .collect(Collectors.toList());
         
@@ -39,7 +47,7 @@ public class RoomService {
     @Transactional(readOnly = true)
     public APIResponse findById(Long id){
         try{
-            Room found = roomRepository.findById(id).orElse(null);
+            Room found = roomRepository.findByIdWithUser(id).orElse(null);
             if (found == null){
                 return new APIResponse("Habitación no encontrada", true, HttpStatus.NOT_FOUND);
             }
@@ -47,7 +55,9 @@ public class RoomService {
             RoomResponseDTO responseDTO = new RoomResponseDTO(
                     found.getId(),
                     found.getNumber(),
-                    found.getStatus()
+                    found.getStatus(),
+                    found.getLastModifiedBy() != null ? found.getLastModifiedBy().getId() : null,
+                    found.getLastModifiedBy() != null ? found.getLastModifiedBy().getFullname() : null
             );
             
             return new APIResponse("Operación exitosa", responseDTO, false, HttpStatus.OK);
@@ -75,9 +85,10 @@ public class RoomService {
     }
 
     @Transactional(rollbackFor = {SQLException.class, Exception.class})
-    public APIResponse update(Room payload){
+    public APIResponse update(UpdateRoomDTO payload){
         try {
-            if (roomRepository.findById(payload.getId()).isEmpty()){
+            Room room = roomRepository.findById(payload.getId()).orElse(null);
+            if (room == null){
                 return new APIResponse("Habitacion no encontrada", true, HttpStatus.NOT_FOUND);
             }
             
@@ -87,7 +98,20 @@ public class RoomService {
                 return new APIResponse("Ya existe otra habitación con el número " + payload.getNumber(), true, HttpStatus.BAD_REQUEST);
             }
             
-            roomRepository.save(payload);
+            // Actualizar campos
+            room.setNumber(payload.getNumber());
+            room.setStatus(payload.getStatus());
+            
+            // Establecer el usuario que modificó (si se proporciona)
+            if (payload.getUserId() != null) {
+                BeanUser user = userRepository.findById(payload.getUserId()).orElse(null);
+                if (user == null) {
+                    return new APIResponse("Usuario no encontrado", true, HttpStatus.NOT_FOUND);
+                }
+                room.setLastModifiedBy(user);
+            }
+            
+            roomRepository.save(room);
             return new APIResponse("Operación exitosa", false, HttpStatus.OK);
         }catch (Exception e){
             e.printStackTrace();

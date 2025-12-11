@@ -11,6 +11,7 @@ public class ReportResponseDTO {
     private Long id;
     private String title;
     private String description;
+    private Boolean active;
     private String photo1;
     private String photo2;
     private String photo3;

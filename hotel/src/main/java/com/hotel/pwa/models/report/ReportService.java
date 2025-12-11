@@ -44,6 +44,7 @@ public class ReportService {
                         report.getId(),
                         report.getTitle(),
                         report.getDescription(),
+                        report.getActive(),
                         report.getPhoto1() != null && !report.getPhoto1().isEmpty() 
                             ? "/api/reports/image/" + report.getPhoto1() : null,
                         report.getPhoto2() != null && !report.getPhoto2().isEmpty() 
@@ -78,6 +79,7 @@ public class ReportService {
                     found.getId(),
                     found.getTitle(),
                     found.getDescription(),
+                    found.getActive(),
                     found.getPhoto1() != null && !found.getPhoto1().isEmpty() 
                         ? "/api/reports/image/" + found.getPhoto1() : null,
                     found.getPhoto2() != null && !found.getPhoto2().isEmpty() 
@@ -148,6 +150,18 @@ public class ReportService {
                 payload.setPhoto3(fileName3);
             }
 
+            // Cambiar el estado de la habitación según el status del reporte
+            if (payload.getActive() != null) {
+                if (payload.getActive()) {
+                    // Si active es true, cambiar habitación a BLOQUEADA
+                    room.setStatus("BLOQUEADA POR SINIESTRO");
+                } else {
+                    // Si active es false, cambiar habitación a SUCIA
+                    room.setStatus("SUCIA");
+                }
+                roomRepository.save(room);
+            }
+
             reportRepository.save(payload);
             return new APIResponse("Reporte registrado correctamente", false, HttpStatus.CREATED);
         }catch (Exception e){
@@ -208,6 +222,24 @@ public class ReportService {
                 payload.setPhoto3(fileName3);
             } else {
                 payload.setPhoto3(existingReport.getPhoto3());
+            }
+
+            // Si se actualiza el status del reporte, cambiar el estado de la habitación
+            if (payload.getActive() != null && !payload.getActive().equals(existingReport.getActive())) {
+                Room room = roomRepository.findById(payload.getRoom().getId()).orElse(null);
+                if (room != null) {
+                    if (payload.getActive()) {
+                        // Si active es true, cambiar habitación a DESHABILITADA
+                        room.setStatus("DESHABILITADA");
+                    } else {
+                        // Si active es false, cambiar habitación a SUCIA
+                        room.setStatus("SUCIA");
+                    }
+                    roomRepository.save(room);
+                }
+            } else if (payload.getActive() == null) {
+                // Si no se especifica active, mantener el valor existente
+                payload.setActive(existingReport.getActive());
             }
 
             reportRepository.save(payload);

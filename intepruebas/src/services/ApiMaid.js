@@ -133,7 +133,7 @@ export async function getMyAssignedRooms(userId) {
 
 /**
  * Envía un reporte de siniestro con imágenes
- * @param {Object} reportData - { title, description, user_id, room_id, images: [base64...] }
+ * @param {Object} reportData - { title, description, user_id, room_id, active, images: [base64...] }
  * @returns {Promise<Object>}
  */
 export async function postReport(reportData) {
@@ -145,6 +145,10 @@ export async function postReport(reportData) {
     formData.append('description', reportData.description);
     formData.append('user_id', reportData.user_id.toString());
     formData.append('room_id', reportData.room_id.toString());
+    
+    // Campo active: true = habitación bloqueada, false = habitación sucia
+    // Por defecto true (bloquea la habitación)
+    formData.append('active', reportData.active !== undefined ? reportData.active.toString() : 'true');
 
     // Convertir imágenes base64 a Blob y adjuntar
     if (reportData.images && Array.isArray(reportData.images)) {

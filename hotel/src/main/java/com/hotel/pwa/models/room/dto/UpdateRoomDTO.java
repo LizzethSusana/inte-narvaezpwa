@@ -7,10 +7,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class RoomResponseDTO {
+public class UpdateRoomDTO {
     private Long id;
     private String number;
     private String status;
-    private Long lastModifiedById;
-    private String lastModifiedByName;
+    private Long userId;
 }

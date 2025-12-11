@@ -35,6 +35,9 @@ public class Report {
     @Column(name = "photo3")
     private String photo3;
 
+    @Column(name = "active", nullable = false)
+    private Boolean active = true;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private BeanUser user;

@@ -36,6 +36,7 @@ public class ReportController {
             @RequestParam("description") String description,
             @RequestParam("user_id") Long userId,
             @RequestParam("room_id") Long roomId,
+            @RequestParam(value = "active", required = false, defaultValue = "true") Boolean active,
             @RequestParam(value = "photo1", required = false) MultipartFile photo1,
             @RequestParam(value = "photo2", required = false) MultipartFile photo2,
             @RequestParam(value = "photo3", required = false) MultipartFile photo3) {
@@ -58,6 +59,7 @@ public class ReportController {
             Report report = new Report();
             report.setTitle(title.trim());
             report.setDescription(description.trim());
+            report.setActive(active);
 
             com.hotel.pwa.models.user.BeanUser user = new com.hotel.pwa.models.user.BeanUser();
             user.setId(userId);
@@ -84,6 +86,7 @@ public class ReportController {
             @RequestParam("description") String description,
             @RequestParam("user_id") Long userId,
             @RequestParam("room_id") Long roomId,
+            @RequestParam(value = "active", required = false) Boolean active,
             @RequestParam(value = "photo1", required = false) MultipartFile photo1,
             @RequestParam(value = "photo2", required = false) MultipartFile photo2,
             @RequestParam(value = "photo3", required = false) MultipartFile photo3) {
@@ -93,6 +96,9 @@ public class ReportController {
             report.setId(id);
             report.setTitle(title.trim());
             report.setDescription(description.trim());
+            if (active != null) {
+                report.setActive(active);
+            }
 
             com.hotel.pwa.models.user.BeanUser user = new com.hotel.pwa.models.user.BeanUser();
             user.setId(userId);

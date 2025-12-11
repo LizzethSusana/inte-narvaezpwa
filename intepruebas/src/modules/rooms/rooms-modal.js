@@ -12,6 +12,7 @@ import {
   getUsers,
   getRooms,
 } from '../../api.js'
+import { getCurrentUserId } from '../../utils/jwt.js'
 
 /**
  * Abre el modal de agregar habitación
@@ -230,10 +231,12 @@ export async function openRoomEditModal(room) {
 
       try {
         // 1. Actualizar la habitación
+        const userId = getCurrentUserId();
         const roomData = {
           id: room.id,
           number: newNumber,
-          status: newStatus
+          status: newStatus,
+          userId: userId
         };
         
         console.log('Datos a enviar al backend:', roomData);

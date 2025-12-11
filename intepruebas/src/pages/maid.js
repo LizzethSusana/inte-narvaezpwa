@@ -125,7 +125,8 @@ async function markRoomClean(room) {
       await updateRoomStatus({
         id: room.id,
         number: room.number,
-        status: ROOM_STATUS.CLEAN
+        status: ROOM_STATUS.CLEAN,
+        userId: state.currentUserId
       });
     }
 

@@ -7,7 +7,8 @@ import { ITEMS_PER_PAGE, ROOM_STATUS } from '../shared/constants.js'
 import { getStatusKey, padRoom } from '../shared/utils.js'
 import { confirmAction, showModal, hideModal, getModal } from '../shared/modal.js'
 import { openRoomEditModal, openRoomAddModal } from './rooms-modal.js'
-import { deleteRoom, createRoomAssignment, createRoom, getRooms, createRoomsBatch } from '../../api.js'
+import { deleteRoom, createRoomAssignment, createRoom, getRooms, createRoomsBatch, updateRoom } from '../../api.js'
+import { getCurrentUserId } from '../../utils/jwt.js'
 
 let roomsPage = 0
 
@@ -255,9 +256,26 @@ function createRoomActions(room) {
         `¿Habilitar la habitación ${room.number || room.id}? Se marcará como "Sucio".`
       )
       if (!ok) return
+      
+      const userId = getCurrentUserId();
       room.status = ROOM_STATUS.DIRTY
-      await put('rooms', room)
-      location.reload()
+      
+      // Actualizar en backend si hay conexión
+      try {
+        if (navigator.onLine && room.id) {
+          await updateRoom({
+            id: room.id,
+            number: room.number,
+            status: ROOM_STATUS.DIRTY,
+            userId: userId
+          });
+        }
+        await put('rooms', room)
+        location.reload()
+      } catch (error) {
+        console.error('Error al habilitar habitación:', error)
+        alert('Error al habilitar habitación: ' + error.message)
+      }
     })
     actions.appendChild(btn)
   }

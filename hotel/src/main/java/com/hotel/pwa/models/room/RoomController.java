@@ -1,5 +1,6 @@
 package com.hotel.pwa.models.room;
 
+import com.hotel.pwa.models.room.dto.UpdateRoomDTO;
 import com.hotel.pwa.utils.APIResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +43,7 @@ public class RoomController {
     }
 
     @PutMapping("")
-    public ResponseEntity<APIResponse> update(@RequestBody Room payload){
+    public ResponseEntity<APIResponse> update(@RequestBody UpdateRoomDTO payload){
         APIResponse response = roomService.update(payload);
         return new ResponseEntity<>(response, response.getStatus());
     }
