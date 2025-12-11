@@ -9,6 +9,8 @@ import { openReportModal } from '$/components/maid/ReportModal.js';
 import { openQRScanner } from '$/components/maid/QRScanner.js';
 import { hasRearCamera } from '$/utils/camera.js';
 import { ROOM_STATUS } from '$/utils/constants.js';
+import { saveRoomStatusOffline, setupOnlineListener, flushOutbox } from '../offline-sync.js';
+import { roomStatusToAPI } from '../modules/shared/constants.js';
 
 // En desarrollo, desregistrar SW para evitar caché de estilos
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
@@ -337,29 +339,64 @@ async function markRoomClean(room) {
   if (!confirmed) return;
 
   const originalStatus = room.status;
+  const hasConnection = navigator.onLine;
 
-  // Actualizar localmente
+  // Actualizar localmente SIEMPRE
   room.status = ROOM_STATUS.CLEAN;
   room.cleanedBy = state.currentUserId;
   room.cleanedAt = new Date().toISOString();
+  room._pendingSync = !hasConnection; // Marcar si está pendiente de sincronización
 
   try {
+    // Guardar en IndexedDB
     await put('rooms', room);
 
-    // Intentar actualizar en el backend si hay conexión
-    if (navigator.onLine) {
-      await updateRoomStatus({
-        id: room.id,
-        number: room.number,
+    // Intentar sincronizar con backend si hay conexión
+    if (hasConnection) {
+      try {
+        await updateRoomStatus({
+          id: room.id,
+          number: room.number,
+          status: roomStatusToAPI(ROOM_STATUS.CLEAN), // Convertir a formato API
+          userId: state.currentUserId
+        });
+
+        // Si tuvo éxito, quitar marca de pendiente
+        room._pendingSync = false;
+        await put('rooms', room);
+
+        console.log(`[Maid] Habitación ${room.number} marcada como limpia y sincronizada`);
+      } catch (syncError) {
+        console.warn(`[Maid] Error al sincronizar con backend, guardando en outbox:`, syncError);
+
+        // Guardar en outbox para sincronización posterior
+        await saveRoomStatusOffline({
+          room_id: room.id,
+          room_number: room.number,
+          status: ROOM_STATUS.CLEAN,
+          user_id: state.currentUserId
+        });
+
+        alert('✓ Habitación marcada como limpia.\n\n⚠️ No se pudo sincronizar con el servidor.\nSe guardó para sincronizar más tarde.');
+      }
+    } else {
+      // Sin conexión - guardar en outbox directamente
+      console.log(`[Maid] Sin conexión, guardando en outbox`);
+
+      await saveRoomStatusOffline({
+        room_id: room.id,
+        room_number: room.number,
         status: ROOM_STATUS.CLEAN,
-        userId: state.currentUserId
+        user_id: state.currentUserId
       });
+
+      alert('✓ Habitación marcada como limpia.\n\n📱 Sin conexión a internet.\nSe sincronizará automáticamente cuando la conexión se restablezca.');
     }
 
     await loadAndRender();
   } catch (e) {
     console.error('Error al actualizar habitación:', e);
-    // Revertir cambio local
+    // Revertir cambio local solo si falla el guardado en IndexedDB
     room.status = originalStatus;
     await put('rooms', room);
     alert('No se pudo actualizar la habitación: ' + (e && e.message));
@@ -565,6 +602,22 @@ async function init() {
   // Deshabilitar botón QR si no hay cámara trasera
   if (state.rearCameraAvailable === false) {
     scanQrBtn.disabled = true;
+  }
+
+  // Configurar listeners para sincronización automática al recuperar conexión
+  setupOnlineListener();
+
+  // Intentar sincronizar operaciones pendientes si hay conexión
+  if (navigator.onLine) {
+    console.log('[Maid] Hay conexión, intentando sincronizar operaciones pendientes...');
+    try {
+      const result = await flushOutbox();
+      if (result.success > 0) {
+        console.log(`[Maid] Se sincronizaron ${result.success} operaciones pendientes al iniciar`);
+      }
+    } catch (e) {
+      console.warn('[Maid] Error al sincronizar operaciones pendientes:', e);
+    }
   }
 
   // Cargar y renderizar vista inicial
