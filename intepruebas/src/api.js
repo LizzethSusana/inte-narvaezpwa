@@ -1,5 +1,7 @@
 // api.js - wrapper para llamadas al servidor
-const API_BASE = import.meta.env.VITE_API_URL;
+import { API_BASE_URL } from './utils/constants.js';
+
+const API_BASE = API_BASE_URL;
 
 // =====================
 // UTILIDADES
@@ -135,6 +137,7 @@ export async function createRoomsBatch(roomsData) {
  * @param {Object} roomData - { id, number, status }
  * @returns {Promise<Object>}
  */
+// =====================
 export async function updateRoom(roomData) {
   console.log('=== updateRoom API ===');
   console.log('Datos recibidos:', roomData);

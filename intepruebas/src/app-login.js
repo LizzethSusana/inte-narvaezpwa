@@ -1,4 +1,6 @@
 import { openDB, getAll, put } from "./idb.js";
+import { API_BASE_URL } from './utils/constants.js';
+
 
 async function bootstrap() {
   // Registrar/Desregistrar service worker según entorno
@@ -68,7 +70,7 @@ async function bootstrap() {
       showError("Por favor ingresa correo y contraseña");
       return;
     }
-
+//  
     // Validar formato de correo electrónico
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(username)) {
@@ -78,9 +80,8 @@ async function bootstrap() {
 
     // Intentar login con el backend
     try {
-      const API_BASE = import.meta.env.VITE_API_URL;
-      
-      const response = await fetch(`${API_BASE}/auth`, {
+      const API_BASE = API_BASE_URL;
+     const response = await fetch(`${API_BASE}/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
