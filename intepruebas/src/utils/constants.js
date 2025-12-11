@@ -1,6 +1,7 @@
 // =====================
 // CONSTANTES GLOBALES
 // =====================
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://98.89.206.54:8081/api";
 
 export const ITEMS_PER_PAGE = 8; // habitaciones por página
 export const MAIDS_PER_PAGE = 6; // camareras por página
