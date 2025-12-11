@@ -78,7 +78,7 @@ async function bootstrap() {
 
     // Intentar login con el backend
     try {
-      const API_BASE = "http://localhost:8081/api";
+      const API_BASE = import.meta.env.VITE_API_URL;
       
       const response = await fetch(`${API_BASE}/auth`, {
         method: "POST",

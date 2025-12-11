@@ -1,3 +1,4 @@
 # Ignorar dependencias
 intepruebas/node_modules/
-
+.env
+.DS_Store
