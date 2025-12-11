@@ -86,7 +86,8 @@ export async function openReportModal(room, maids) {
  */
 export function showReportDetailModal(report, maidsList) {
   const date = report.createdAt ? new Date(report.createdAt).toLocaleString() : '—'
-  const room = report.roomId || '—'
+  // Soporte para ambos formatos: API (room.number) y local (roomId)
+  const room = report.room?.number || report.roomId || report.room_id || '—'
   const maidDisplay = resolveMaidDisplay(report, maidsList)
 
   const modal = getModal()
@@ -106,7 +107,7 @@ export function showReportDetailModal(report, maidsList) {
         <div>${maidDisplay}</div>
         
         <div style="font-weight: 600; color: #555;">Tema:</div>
-        <div style="font-weight: 600; color: #d9534f;">${report.subject || '—'}</div>
+        <div style="font-weight: 600; color: #d9534f;">${report.title || report.subject || '—'}</div>
       </div>
     </div>
 
@@ -129,9 +130,19 @@ export function showReportDetailModal(report, maidsList) {
   </div>`
 
   const imgsContainer = document.getElementById('reportImages')
-  if (report.images && report.images.length) {
-    report.images.forEach((src) => {
-      const imgDiv = createImageThumb(src, report.images)
+
+  // Obtener imágenes tanto del formato API como del formato local
+  const apiImages = []
+  if (report.photo1) apiImages.push(getImageUrl(report.photo1))
+  if (report.photo2) apiImages.push(getImageUrl(report.photo2))
+  if (report.photo3) apiImages.push(getImageUrl(report.photo3))
+
+  const localImages = report.images || []
+  const allImages = apiImages.length > 0 ? apiImages : localImages
+
+  if (allImages && allImages.length) {
+    allImages.forEach((src) => {
+      const imgDiv = createImageThumb(src, allImages)
       imgsContainer.appendChild(imgDiv)
     })
   } else {
@@ -186,27 +197,54 @@ function createImageThumb(src, images) {
 }
 
 /**
+ * Obtiene la URL de la imagen desde el backend
+ * @param {string} fileName - Nombre del archivo (ej: "report_1_photo1_1733875200000.jpg")
+ * @returns {string}
+ */
+function getImageUrl(fileName) {
+  if (!fileName) return ''
+
+  // Si ya es una URL o base64, retornarla tal cual
+  if (fileName.startsWith('http') || fileName.startsWith('data:')) {
+    return fileName
+  }
+
+  // Construir URL del API para obtener la imagen
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8081/api'
+  return `${API_BASE}/reports/image/${fileName}`
+}
+
+/**
  * Resuelve el nombre de la camarera que reportó
  * @param {Object} report
  * @param {Array} maidsList
  * @returns {string}
  */
 function resolveMaidDisplay(report, maidsList) {
-  if (report.maidId) {
-    const found = maidsList.find((m) => (m.id || m.email) === report.maidId)
-    return found ? found.name || found.email || found.id : report.maidId
+  // Formato API: report.user.fullname
+  if (report.user) {
+    return report.user.fullname || report.user.username || report.user.id || '—'
   }
 
+  // Formato local: report.user_id o report.maidId
+  const userId = report.user_id || report.maidId
+  if (userId) {
+    const found = maidsList.find((m) => m.id === userId || (m.id || m.email) === userId)
+    return found ? found.name || found.fullname || found.email || found.id : userId
+  }
+
+  // Fallback: createdBy
   if (report.createdBy && report.createdBy !== 'recepcion') {
     const found = maidsList.find((m) => (m.id || m.email) === report.createdBy)
-    return found ? found.name || found.email || found.id : report.createdBy
+    return found ? found.name || found.fullname || found.email || found.id : report.createdBy
   }
 
+  // Fallback: array de maids (legacy)
   if (Array.isArray(report.maids) && report.maids.length) {
     return report.maids
       .map((x) => {
         const f = maidsList.find((m) => (m.id || m.email) === x)
-        return f ? f.name || f.email || f.id : x
+        return f ? f.name || f.fullname || f.email || f.id : x
       })
       .join(', ')
   }

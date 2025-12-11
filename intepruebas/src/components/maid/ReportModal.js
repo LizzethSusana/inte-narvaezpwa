@@ -163,11 +163,13 @@ export async function openReportModal(room, userId, onSuccess) {
 
     const finalImages = images.slice(0, CAMERA_CONFIG.MAX_PHOTOS);
 
+    // Formato según API: title, description, user_id, room_id, images
     const report = {
       _id: 'r_' + Date.now(),
-      room_id: room.id,
+      title: subject,
+      description: description,
       user_id: userId,
-      description: `${subject}\n\n${description}`,
+      room_id: room.id,
       images: finalImages,
       status: 'Pendiente',
       createdAt: new Date().toISOString(),
@@ -182,8 +184,18 @@ export async function openReportModal(room, userId, onSuccess) {
     try {
       if (hasConnection) {
         // Intentar enviar al backend
-        const result = await postReport(report);
-        await put('reports', result);
+        console.log('Enviando reporte al backend:', report);
+        const response = await postReport(report);
+        console.log('Respuesta del backend:', response);
+
+        // Guardar la respuesta del servidor en IndexedDB
+        if (response.data) {
+          await put('reports', {
+            ...response.data,
+            _synced: true
+          });
+        }
+
         alert('✓ El reporte fue enviado correctamente al servidor.');
       } else {
         throw new Error('Sin conexión');
@@ -192,10 +204,13 @@ export async function openReportModal(room, userId, onSuccess) {
       // Guardar offline
       console.warn('Error al enviar a servidor, guardando offline:', err);
       await saveReportOffline(report);
-      await put('reports', report);
+      await put('reports', {
+        ...report,
+        _synced: false
+      });
 
       if (hasConnection) {
-        alert('✓ El reporte ha sido guardado en tu dispositivo.\n\nSe sincronizará automáticamente con el servidor cuando sea posible.');
+        alert(`⚠️ ${err.message}\n\nEl reporte ha sido guardado en tu dispositivo y se sincronizará automáticamente con el servidor cuando sea posible.`);
       } else {
         alert('📱 Sin conexión a internet.\n\nEl reporte se ha guardado en tu dispositivo y se sincronizará automáticamente cuando la conexión se restablezca.');
       }

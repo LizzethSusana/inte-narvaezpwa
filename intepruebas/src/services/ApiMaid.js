@@ -2,7 +2,7 @@
 // SERVICIO API PARA OPERACIONES DE CAMARERA
 // =====================================================
 
-const API_BASE = "http://localhost:8081/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8081/api";
 
 /**
  * Obtiene el token de autenticación del localStorage
@@ -133,13 +133,15 @@ export async function getMyAssignedRooms(userId) {
 
 /**
  * Envía un reporte de siniestro con imágenes
- * @param {Object} reportData - { description, user_id, room_id, images: [base64...] }
+ * @param {Object} reportData - { title, description, user_id, room_id, images: [base64...] }
  * @returns {Promise<Object>}
  */
 export async function postReport(reportData) {
   try {
     const formData = new FormData();
 
+    // Campos requeridos según API
+    formData.append('title', reportData.title);
     formData.append('description', reportData.description);
     formData.append('user_id', reportData.user_id.toString());
     formData.append('room_id', reportData.room_id.toString());
@@ -168,7 +170,8 @@ export async function postReport(reportData) {
     });
 
     if (!response.ok) {
-      throw new Error("Error al enviar reporte");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Error al enviar reporte");
     }
 
     return response.json();

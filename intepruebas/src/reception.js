@@ -317,18 +317,27 @@ async function syncDataFromBackend() {
 
     // Sincronizar reportes
     const reports = await getReports();
+    console.log('Reportes obtenidos del backend:', reports.length);
+
     for (const report of reports) {
       await put('reports', {
-        id: report.id,
-        description: report.description,
-        photo1: report.photo1,
-        photo2: report.photo2,
-        photo3: report.photo3,
-        room: report.room,
-        user: report.user,
-        createdAt: report.createdAt,
+        _id: `report_${report.id}`,    // Clave primaria para IndexedDB
+        id: report.id,                 // ID del backend
+        title: report.title,           // Tema del reporte
+        description: report.description, // Descripción
+        photo1: report.photo1,          // Imagen 1
+        photo2: report.photo2,          // Imagen 2
+        photo3: report.photo3,          // Imagen 3
+        room: report.room,              // { id, number, status }
+        user: report.user,              // { id, fullname, username }
+        status: 'Pendiente',            // Estado por defecto
+        createdAt: new Date().toISOString(), // Fecha actual si no viene
+        _synced: true                   // Marcador de sincronización
       });
     }
+
+    console.log('Reportes sincronizados en IndexedDB:', reports.length);
+
 
     console.log('Datos sincronizados correctamente');
   } catch (error) {
@@ -353,15 +362,21 @@ async function renderAll() {
     console.log('Datos locales obtenidos:', { rooms: rooms.length, maids: maids.length, reports: reports.length })
 
     // Si no hay datos locales y hay conexión, sincronizar desde el backend
-    if ((rooms.length === 0 || maids.length === 0) && navigator.onLine) {
-      console.log('IndexedDB vacío, sincronizando desde backend...')
+    // O si hay conexión, sincronizar reportes para obtener los más recientes
+    if (navigator.onLine) {
+      if (rooms.length === 0 || maids.length === 0 || reports.length === 0) {
+        console.log('IndexedDB vacío, sincronizando desde backend...')
+      } else {
+        console.log('Sincronizando reportes desde backend para obtener los más recientes...')
+      }
+
       await syncDataFromBackend()
-      
+
       // Volver a cargar los datos después de sincronizar
       rooms = (await getAll('rooms').catch(() => [])) || []
       maids = (await getAll('maids').catch(() => [])) || []
       reports = (await getAll('reports').catch(() => [])) || []
-      
+
       console.log('Datos después de sincronizar:', { rooms: rooms.length, maids: maids.length, reports: reports.length })
     }
 

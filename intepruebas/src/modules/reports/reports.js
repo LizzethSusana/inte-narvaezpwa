@@ -44,8 +44,10 @@ function createReportRow(report, maids) {
   const tr = document.createElement('tr')
 
   const date = report.createdAt ? new Date(report.createdAt).toLocaleString() : '—'
-  const room = report.roomId || '—'
-  const subject = report.subject || '—'
+  // Soporte para ambos formatos: API (room.number) y local (roomId o room_id)
+  const room = report.room?.number || report.roomId || report.room_id || '—'
+  // Soporte para ambos formatos: API (title) y local (subject)
+  const subject = report.title || report.subject || '—'
   const maidDisplay = resolveMaidName(report, maids)
   const status = report.status || 'Pendiente'
 
@@ -109,21 +111,30 @@ function createReportRow(report, maids) {
  * @returns {string}
  */
 function resolveMaidName(report, maids) {
-  if (report.maidId) {
-    const found = maids.find((m) => (m.id || m.email) === report.maidId)
-    return found ? found.name || found.email || found.id : report.maidId
+  // Formato API: report.user.fullname
+  if (report.user) {
+    return report.user.fullname || report.user.username || report.user.id || '—'
   }
 
+  // Formato local: report.user_id o report.maidId
+  const userId = report.user_id || report.maidId
+  if (userId) {
+    const found = maids.find((m) => m.id === userId || (m.id || m.email) === userId)
+    return found ? found.name || found.fullname || found.email || found.id : userId
+  }
+
+  // Fallback: createdBy
   if (report.createdBy && report.createdBy !== 'recepcion') {
     const found = maids.find((m) => (m.id || m.email) === report.createdBy)
-    return found ? found.name || found.email || found.id : report.createdBy
+    return found ? found.name || found.fullname || found.email || found.id : report.createdBy
   }
 
+  // Fallback: array de maids (legacy)
   if (Array.isArray(report.maids) && report.maids.length) {
     return report.maids
       .map((x) => {
         const f = maids.find((m) => (m.id || m.email) === x)
-        return f ? f.name || f.email || f.id : x
+        return f ? f.name || f.fullname || f.email || f.id : x
       })
       .join(', ')
   }
@@ -201,10 +212,12 @@ async function updateReportStatus(report, newStatus) {
   const updatedReport = { ...report, status: newStatus }
   await put('reports', updatedReport)
 
-  if (!report.roomId) return
+  // Soportar ambos formatos: API (room.id) y local (roomId o room_id)
+  const roomId = report.room?.id || report.roomId || report.room_id
+  if (!roomId) return
 
   try {
-    const room = await get('rooms', report.roomId)
+    const room = await get('rooms', roomId)
     if (!room) return
 
     room.status = newStatus === 'Habilitado' ? ROOM_STATUS.DIRTY : ROOM_STATUS.BLOCKED
