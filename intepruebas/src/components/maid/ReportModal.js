@@ -45,6 +45,12 @@ export async function openReportModal(room, userId, onSuccess) {
           <label>Fotos (máx 3)</label>
           <span id="photoCount" class="counter">0 / 3</span>
         </div>
+        <div id="permissionWarning" class="permission-warning" style="display:none; background:#fff3cd; border:1px solid #ffc107; padding:12px; border-radius:8px; margin-bottom:12px;">
+          <strong>⚠️ Permiso de cámara requerido</strong>
+          <p style="margin:8px 0 0 0; font-size:14px; color:#856404;">
+            Para adjuntar evidencia fotográfica del siniestro, por favor habilita el permiso de cámara en la configuración de tu navegador.
+          </p>
+        </div>
         <div id="cameraArea" class="camera-card">
           <div class="camera-preview">
             <video id="video" autoplay playsinline></video>
@@ -81,10 +87,13 @@ export async function openReportModal(room, userId, onSuccess) {
   const sendBtn = modal.querySelector('#send');
   const subjectInput = modal.querySelector('#subject');
   const descInput = modal.querySelector('#desc');
+  const permissionWarning = modal.querySelector('#permissionWarning');
 
   // Estado
   let stream = null;
   const images = [];
+  let cameraPermissionGranted = false;
+  let cameraPermissionDenied = false;
 
   // Cleanup
   const cleanup = () => {
@@ -95,8 +104,18 @@ export async function openReportModal(room, userId, onSuccess) {
     modal.remove();
   };
 
-  // Solicitar permiso anticipado
-  await requestCameraPermission();
+  // Solicitar permiso anticipado y actualizar estado
+  cameraPermissionGranted = await requestCameraPermission();
+  if (!cameraPermissionGranted) {
+    cameraPermissionDenied = true;
+    // Mostrar warning de permiso
+    permissionWarning.style.display = 'block';
+    startCamBtn.disabled = true;
+    startCamBtn.textContent = 'Permiso denegado';
+    // Deshabilitar botón de envío hasta que haya al menos 1 foto
+    sendBtn.disabled = true;
+    sendBtn.title = 'Debes adjuntar al menos 1 foto para enviar el reporte';
+  }
 
   // Event: Cerrar
   closeBtn.addEventListener('click', cleanup);
@@ -127,14 +146,23 @@ export async function openReportModal(room, userId, onSuccess) {
   captureBtn.addEventListener('click', () => {
     if (!stream) return;
 
+    // No permitir más de 3 fotos
+    if (images.length >= CAMERA_CONFIG.MAX_PHOTOS) {
+      alert('Ya has tomado el máximo de 3 fotos permitidas.');
+      return;
+    }
+
     try {
       const photoData = capturePhoto(video, canvas);
       images.push(photoData);
       updateThumbs();
       updateUI();
 
+      // Deshabilitar botón después de 3 fotos
       if (images.length >= CAMERA_CONFIG.MAX_PHOTOS) {
         captureBtn.disabled = true;
+        captureBtn.textContent = 'Máximo alcanzado (3/3)';
+        captureBtn.title = 'Ya has adjuntado 3 fotos (máximo permitido)';
       }
     } catch (err) {
       alert(err.message || 'Error al capturar foto');
@@ -223,7 +251,27 @@ export async function openReportModal(room, userId, onSuccess) {
   // Funciones auxiliares
   function updateUI() {
     photoCount.textContent = `${images.length} / ${CAMERA_CONFIG.MAX_PHOTOS}`;
-    captureBtn.disabled = images.length >= CAMERA_CONFIG.MAX_PHOTOS || !stream;
+
+    // Deshabilitar botón de captura si ya hay 3 fotos o no hay stream
+    if (images.length >= CAMERA_CONFIG.MAX_PHOTOS) {
+      captureBtn.disabled = true;
+      captureBtn.textContent = 'Máximo alcanzado (3/3)';
+    } else if (!stream) {
+      captureBtn.disabled = true;
+      captureBtn.textContent = 'Tomar foto';
+    } else {
+      captureBtn.disabled = false;
+      captureBtn.textContent = 'Tomar foto';
+    }
+
+    // Habilitar/deshabilitar botón de envío basado en si hay al menos 1 foto
+    if (images.length === 0) {
+      sendBtn.disabled = true;
+      sendBtn.title = 'Debes adjuntar al menos 1 foto para enviar el reporte';
+    } else {
+      sendBtn.disabled = false;
+      sendBtn.title = '';
+    }
   }
 
   function updateThumbs() {
@@ -245,6 +293,12 @@ export async function openReportModal(room, userId, onSuccess) {
         images.splice(idx, 1);
         updateThumbs();
         updateUI();
+        // Re-habilitar botón de captura si se eliminó una foto y ahora hay menos de 3
+        if (images.length < CAMERA_CONFIG.MAX_PHOTOS && stream) {
+          captureBtn.disabled = false;
+          captureBtn.textContent = 'Tomar foto';
+          captureBtn.title = '';
+        }
       };
       d.appendChild(rem);
 
@@ -252,5 +306,7 @@ export async function openReportModal(room, userId, onSuccess) {
     });
   }
 
+  // Inicializar UI
   updateUI();
 }
+

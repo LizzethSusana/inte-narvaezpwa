@@ -52,6 +52,7 @@ export async function hasRearCamera() {
  */
 export async function requestCameraPermission() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn('getUserMedia no está disponible en este navegador');
     return false;
   }
 
@@ -61,9 +62,17 @@ export async function requestCameraPermission() {
       audio: false,
     });
     tempStream.getTracks().forEach(t => t.stop());
+    console.log('Permiso de cámara concedido');
     return true;
   } catch (e) {
-    console.warn('Permiso de cámara no concedido o no disponible', e);
+    console.warn('Permiso de cámara denegado o no disponible:', e.name, e.message);
+    // NotAllowedError = usuario denegó el permiso
+    // NotFoundError = no hay cámara disponible
+    if (e.name === 'NotAllowedError') {
+      console.error('El usuario denegó el permiso de cámara');
+    } else if (e.name === 'NotFoundError') {
+      console.error('No se encontró ninguna cámara en el dispositivo');
+    }
     return false;
   }
 }

@@ -696,8 +696,11 @@ async function assignMaidToRoom(roomId, maidId) {
           // Actualizar asignación existente
           await updateRoomAssignment(existingAssignment.id, { userId: maidId, roomId })
         } else {
-          // Crear nueva asignación
-          await createRoomAssignment({ userId: maidId, roomId })
+          // Crear nueva asignación con formato correcto del API
+          await createRoomAssignment({
+            room: { id: roomId },
+            user: { id: parseInt(maidId, 10) }
+          })
         }
       } else {
         // Eliminar asignación si existe

@@ -1,5 +1,7 @@
 // api.js - wrapper para llamadas al servidor
-import { API_BASE_URL } from './utils/constants.js';
+
+import { API_BASE_URL } from "./utils/constants";
+
 
 const API_BASE = API_BASE_URL;
 
