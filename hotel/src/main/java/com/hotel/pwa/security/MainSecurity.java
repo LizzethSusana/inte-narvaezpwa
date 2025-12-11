@@ -25,7 +25,8 @@ import java.util.List;
 public class MainSecurity {
 
     private final String[] WHITE_LIST ={
-            "/api/auth/**"
+            "/api/auth/**",
+            "/api/reports/image/**"
     };
 
     @Autowired
@@ -39,6 +40,7 @@ public class MainSecurity {
 
                         .requestMatchers(WHITE_LIST).permitAll()
 
+
                         // Ver habitaciones
                         .requestMatchers(HttpMethod.GET, "/api/rooms/**")
                         .hasAnyRole("MAID", "RECEPTION")
@@ -50,7 +52,6 @@ public class MainSecurity {
                         // Levantar siniestro
                         .requestMatchers(HttpMethod.POST, "/api/reports/**")
                         .hasRole("MAID")
-
 
 
                         // CRUD habitaciones
