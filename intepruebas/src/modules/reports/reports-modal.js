@@ -85,7 +85,9 @@ export async function openReportModal(room, maids) {
  * @param {Array} maidsList
  */
 export function showReportDetailModal(report, maidsList) {
-  const date = report.createdAt ? new Date(report.createdAt).toLocaleString() : '—'
+  const date = report.createdAt
+    ? new Date(report.createdAt).toLocaleString()
+    : '—'
   // Soporte para ambos formatos: API (room.number) y local (roomId)
   const room = report.room?.number || report.roomId || report.room_id || '—'
   const maidDisplay = resolveMaidDisplay(report, maidsList)
@@ -107,7 +109,9 @@ export function showReportDetailModal(report, maidsList) {
         <div>${maidDisplay}</div>
         
         <div style="font-weight: 600; color: #555;">Tema:</div>
-        <div style="font-weight: 600; color: #d9534f;">${report.title || report.subject || '—'}</div>
+        <div style="font-weight: 600; color: #d9534f;">${
+          report.title || report.subject || '—'
+        }</div>
       </div>
     </div>
 
@@ -210,8 +214,9 @@ function getImageUrl(fileName) {
   }
 
   // Construir URL del API para obtener la imagen
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8081/api'
-  return `${API_BASE}/reports/image/${fileName}`
+  const API_BASE =
+    import.meta.env.VITE_API_IMAGES_URL || 'http://localhost:8081/api'
+  return `${API_BASE}${fileName}`
 }
 
 /**
@@ -229,14 +234,20 @@ function resolveMaidDisplay(report, maidsList) {
   // Formato local: report.user_id o report.maidId
   const userId = report.user_id || report.maidId
   if (userId) {
-    const found = maidsList.find((m) => m.id === userId || (m.id || m.email) === userId)
-    return found ? found.name || found.fullname || found.email || found.id : userId
+    const found = maidsList.find(
+      (m) => m.id === userId || (m.id || m.email) === userId
+    )
+    return found
+      ? found.name || found.fullname || found.email || found.id
+      : userId
   }
 
   // Fallback: createdBy
   if (report.createdBy && report.createdBy !== 'recepcion') {
     const found = maidsList.find((m) => (m.id || m.email) === report.createdBy)
-    return found ? found.name || found.fullname || found.email || found.id : report.createdBy
+    return found
+      ? found.name || found.fullname || found.email || found.id
+      : report.createdBy
   }
 
   // Fallback: array de maids (legacy)

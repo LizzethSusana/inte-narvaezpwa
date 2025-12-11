@@ -1,16 +1,14 @@
 // =====================================================
-// PÁGINA: VISTA DE CAMARERA
+// PÁGINA: VISTA DE CAMARERA - MOBILE FIRST
 // =====================================================
 
-import { openDB, getAll, get, put } from '../idb.js';
+import { openDB, getAll, put } from '../idb.js';
 import { getAllRooms, updateRoomStatus, getRoomAssignments } from '$/services/ApiMaid.js';
 import { getCurrentUserId } from '$/utils/jwt.js';
-import { renderRoomMap } from '$/components/maid/RoomMap.js';
-import { renderFilterLegend } from '$/components/maid/FilterLegend.js';
 import { openReportModal } from '$/components/maid/ReportModal.js';
 import { openQRScanner } from '$/components/maid/QRScanner.js';
 import { hasRearCamera } from '$/utils/camera.js';
-import { ROOM_FILTERS, ROOM_STATUS } from '$/utils/constants.js';
+import { ROOM_STATUS } from '$/utils/constants.js';
 
 // En desarrollo, desregistrar SW para evitar caché de estilos
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
@@ -24,38 +22,27 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 // =====================
 
 const state = {
-  currentFilter: ROOM_FILTERS.ALL,
-  searchQuery: '',
+  currentFilter: 'all', // all, myRooms, dirty, clean, incident
+  selectedFloor: null, // null = todas, 1, 2, 3, etc.
   rearCameraAvailable: null,
-  layoutConfig: null,
   currentUserId: null,
+  allRooms: [],
 };
 
 // =====================
 // ELEMENTOS DEL DOM
 // =====================
 
-const allRoomsGrid = document.getElementById('allRooms');
-const roomSearchInput = document.getElementById('roomSearch');
+const userEmail = document.getElementById('userEmail');
+const logoutBtn = document.getElementById('logoutBtn');
 const scanQrBtn = document.getElementById('scanQrBtn');
-const filterLegend = document.getElementById('filterLegend');
-const searchHint = document.getElementById('searchHint');
+const filterGroup = document.getElementById('filterGroup');
+const floorGrid = document.getElementById('floorGrid');
+const roomsList = document.getElementById('roomsList');
 
 // =====================
 // FUNCIONES PRINCIPALES
 // =====================
-
-/**
- * Carga la configuración de layout del hotel desde IndexedDB
- */
-async function loadLayoutConfig() {
-  try {
-    const stored = await get('settings', 'hotelLayout');
-    if (stored) state.layoutConfig = stored;
-  } catch (e) {
-    state.layoutConfig = null;
-  }
-}
 
 /**
  * Sincroniza datos desde el backend a IndexedDB
@@ -100,6 +87,245 @@ async function syncFromBackend() {
 }
 
 /**
+ * Extrae el número de piso de una habitación siguiendo la nomenclatura
+ * Formato: N-XX donde N es el piso
+ * @param {string} roomNumber
+ * @returns {number|null}
+ */
+function extractFloorFromRoom(roomNumber) {
+  if (!roomNumber) return null;
+
+  const match = String(roomNumber).match(/^(\d+)-/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+
+  return null;
+}
+
+/**
+ * Obtiene todos los pisos únicos de las habitaciones
+ * @param {Array} rooms
+ * @returns {Array<number>}
+ */
+function getUniqueFloors(rooms) {
+  const floors = new Set();
+
+  rooms.forEach(room => {
+    const floor = extractFloorFromRoom(room.number);
+    if (floor !== null) {
+      floors.add(floor);
+    }
+  });
+
+  return Array.from(floors).sort((a, b) => a - b);
+}
+
+/**
+ * Filtra habitaciones según el filtro actual y piso seleccionado
+ * @param {Array} rooms
+ * @returns {Array}
+ */
+function filterRooms(rooms) {
+  let filtered = rooms;
+
+  // Filtro por tipo
+  switch (state.currentFilter) {
+    case 'myRooms':
+      filtered = filtered.filter(r => r.maidId === state.currentUserId);
+      break;
+    case 'dirty':
+      filtered = filtered.filter(r => r.status === 'Sucia' || r.status === 'limpieza');
+      break;
+    case 'clean':
+      filtered = filtered.filter(r => r.status === 'Limpia' || r.status === 'disponible');
+      break;
+    case 'incident':
+      filtered = filtered.filter(r => r.status === 'Bloqueada' || r.status === 'mantenimiento');
+      break;
+    default:
+      // all - no filtrar
+      break;
+  }
+
+  // Filtro por piso
+  if (state.selectedFloor !== null) {
+    filtered = filtered.filter(r => {
+      const floor = extractFloorFromRoom(r.number);
+      return floor === state.selectedFloor;
+    });
+  }
+
+  return filtered;
+}
+
+/**
+ * Renderiza el button group de filtros
+ */
+function renderFilterGroup() {
+  const filters = [
+    { id: 'all', label: 'Todas' },
+    { id: 'myRooms', label: 'Asignadas a mí' },
+    { id: 'dirty', label: 'Sucias' },
+    { id: 'clean', label: 'Limpias' },
+    { id: 'incident', label: 'Siniestro' },
+  ];
+
+  filterGroup.innerHTML = filters.map(filter => `
+    <button
+      class="filter-btn ${state.currentFilter === filter.id ? 'active' : ''}"
+      data-filter="${filter.id}"
+    >
+      ${filter.label}
+    </button>
+  `).join('');
+
+  // Event listeners
+  filterGroup.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.currentFilter = btn.dataset.filter;
+      renderFilterGroup();
+      renderRooms();
+    });
+  });
+}
+
+/**
+ * Renderiza las cards de pisos
+ */
+function renderFloorGrid() {
+  const floors = getUniqueFloors(state.allRooms);
+
+  // Calcular cuántas habitaciones hay en cada piso
+  const floorCounts = {};
+  floors.forEach(floor => {
+    floorCounts[floor] = state.allRooms.filter(r => extractFloorFromRoom(r.number) === floor).length;
+  });
+
+  // Agregar "Otros" si hay habitaciones sin piso
+  const othersCount = state.allRooms.filter(r => extractFloorFromRoom(r.number) === null).length;
+
+  floorGrid.innerHTML = '';
+
+  // Pisos con nomenclatura estándar
+  floors.forEach(floor => {
+    const card = document.createElement('div');
+    card.className = `floor-card ${state.selectedFloor === floor ? 'selected' : ''}`;
+    card.innerHTML = `
+      <div class="floor-card-content">
+        <div class="floor-label">Piso</div>
+      </div>
+      <div class="floor-number-badge">${floor}</div>
+    `;
+
+    card.addEventListener('click', () => {
+      // Toggle: si ya está seleccionado, deseleccionar
+      state.selectedFloor = state.selectedFloor === floor ? null : floor;
+      renderFloorGrid();
+      renderRooms();
+    });
+
+    floorGrid.appendChild(card);
+  });
+
+  // Card de "Otros" si hay habitaciones sin nomenclatura estándar
+  if (othersCount > 0) {
+    const othersCard = document.createElement('div');
+    othersCard.className = `floor-card ${state.selectedFloor === 'others' ? 'selected' : ''}`;
+    othersCard.innerHTML = `
+      <div class="floor-card-content">
+        <div class="floor-label">Piso</div>
+      </div>
+      <div class="floor-number-badge">Otros</div>
+    `;
+
+    othersCard.addEventListener('click', () => {
+      state.selectedFloor = state.selectedFloor === 'others' ? null : 'others';
+      renderFloorGrid();
+      renderRooms();
+    });
+
+    floorGrid.appendChild(othersCard);
+  }
+}
+
+/**
+ * Renderiza las cards de habitaciones
+ */
+function renderRooms() {
+  let rooms = filterRooms(state.allRooms);
+
+  // Si selectedFloor es 'others', mostrar solo habitaciones sin piso
+  if (state.selectedFloor === 'others') {
+    rooms = rooms.filter(r => extractFloorFromRoom(r.number) === null);
+  }
+
+  roomsList.innerHTML = '';
+
+  if (rooms.length === 0) {
+    roomsList.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: var(--color-text-light);">
+        <i class="bi bi-inbox" style="font-size: 48px; opacity: 0.3; display: block; margin-bottom: 16px;"></i>
+        <p style="font-size: 16px; font-weight: 600;">No hay habitaciones con este filtro</p>
+      </div>
+    `;
+    return;
+  }
+
+  rooms.forEach(room => {
+    const card = createRoomCard(room);
+    roomsList.appendChild(card);
+  });
+}
+
+/**
+ * Crea una card de habitación
+ * @param {Object} room
+ * @returns {HTMLElement}
+ */
+function createRoomCard(room) {
+  const card = document.createElement('div');
+
+  // Clase de status para el borde de color
+  const statusClass = `status-${(room.status || 'disponible').toLowerCase()}`;
+  card.className = `room-card ${statusClass}`;
+
+  card.innerHTML = `
+    <div class="room-card-left">
+      <div class="room-icon">
+        <i class="bi bi-door-closed"></i>
+      </div>
+      <div class="room-info">
+        <div class="room-number">${room.number || room.id}</div>
+        <div class="room-status">${room.status || 'Disponible'}</div>
+      </div>
+    </div>
+    <div class="room-card-right">
+      <button class="room-action-btn btn-clean" title="Marcar como limpia" data-action="clean">
+        <i class="bi bi-check-circle"></i>
+      </button>
+      <button class="room-action-btn btn-report" title="Reportar siniestro" data-action="report">
+        <i class="bi bi-exclamation-triangle"></i>
+      </button>
+    </div>
+  `;
+
+  // Event listeners para botones
+  const btnClean = card.querySelector('[data-action="clean"]');
+  const btnReport = card.querySelector('[data-action="report"]');
+
+  btnClean.addEventListener('click', () => markRoomClean(room));
+  btnReport.addEventListener('click', () => triggerReport(room));
+
+  // Deshabilitar botón de reporte si no hay cámara trasera
+  if (state.rearCameraAvailable === false) {
+    btnReport.disabled = true;
+  }
+
+  return card;
+}
+
+/**
  * Marca una habitación como limpia
  * @param {Object} room
  */
@@ -130,7 +356,7 @@ async function markRoomClean(room) {
       });
     }
 
-    await render();
+    await loadAndRender();
   } catch (e) {
     console.error('Error al actualizar habitación:', e);
     // Revertir cambio local
@@ -158,34 +384,7 @@ async function triggerReport(room) {
   }
 
   openReportModal(room, state.currentUserId, async () => {
-    await render();
-  });
-}
-
-/**
- * Renderiza la vista completa
- */
-async function render() {
-  if (!state.layoutConfig) await loadLayoutConfig();
-
-  // Obtener habitaciones locales
-  let rooms = (await getAll('rooms').catch(() => [])) || [];
-
-  // Si no hay datos locales y hay conexión, sincronizar
-  if (rooms.length === 0 && navigator.onLine) {
-    await syncFromBackend();
-    rooms = (await getAll('rooms').catch(() => [])) || [];
-  }
-
-  // Renderizar mapa de habitaciones
-  renderRoomMap(allRoomsGrid, rooms, {
-    currentFilter: state.currentFilter,
-    searchQuery: state.searchQuery,
-    currentUserId: state.currentUserId,
-    layoutConfig: state.layoutConfig,
-    onMarkClean: markRoomClean,
-    onReportIncident: triggerReport,
-    rearCameraAvailable: state.rearCameraAvailable
+    await loadAndRender();
   });
 }
 
@@ -206,9 +405,9 @@ function confirmMarkClean(room) {
 
     modal.innerHTML = `
       <div class="modal-content" role="dialog">
-        <h4 style="margin-bottom: 20px; color: var(--primary);">Marcar habitación como limpia</h4>
+        <h4 style="margin-bottom: 20px; color: var(--color-text);">Marcar habitación como limpia</h4>
         <p style="font-size: 1rem; margin: 16px 0; line-height: 1.6; color: #555;">
-          ¿Estás seguro de que la habitación <strong style="color: var(--primary);">${room.id}</strong> ha sido limpiada correctamente?
+          ¿Estás seguro de que la habitación <strong style="color: var(--color-primary-dark);">${room.number || room.id}</strong> ha sido limpiada correctamente?
         </p>
         <div style="background: #f8f9fa; padding: 14px; border-left: 4px solid ${connectionColor}; border-radius: 6px; margin: 16px 0; font-size: 0.95rem;">
           <div style="color: ${connectionColor}; font-weight: 600;">
@@ -241,6 +440,26 @@ function confirmMarkClean(room) {
   });
 }
 
+/**
+ * Carga las habitaciones y renderiza la interfaz
+ */
+async function loadAndRender() {
+  // Obtener habitaciones locales
+  let rooms = (await getAll('rooms').catch(() => [])) || [];
+
+  // Si no hay datos locales y hay conexión, sincronizar
+  if (rooms.length === 0 && navigator.onLine) {
+    await syncFromBackend();
+    rooms = (await getAll('rooms').catch(() => [])) || [];
+  }
+
+  state.allRooms = rooms;
+
+  renderFilterGroup();
+  renderFloorGrid();
+  renderRooms();
+}
+
 // =====================
 // INICIALIZACIÓN
 // =====================
@@ -263,6 +482,10 @@ async function init() {
     return;
   }
 
+  // Mostrar email del usuario
+  const username = localStorage.getItem('username');
+  userEmail.textContent = username || 'Usuario';
+
   // Abrir IndexedDB
   await openDB();
 
@@ -278,35 +501,12 @@ async function init() {
   // Sincronizar con backend al iniciar
   await syncFromBackend();
 
-  // Renderizar leyenda de filtros
-  renderFilterLegend(filterLegend, state.currentFilter, (newFilter) => {
-    state.currentFilter = newFilter;
-    render();
-  });
-
-  // Event: Input de búsqueda
-  roomSearchInput.addEventListener('input', (e) => {
-    state.searchQuery = String(e.target.value).trim();
-    searchHint.textContent = state.searchQuery ? `Filtrando: "${state.searchQuery}"` : '';
-    render();
-  });
-
-  // Event: Enter en búsqueda (scroll a habitación)
-  roomSearchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const value = String(roomSearchInput.value).trim();
-      if (value) {
-        const seats = Array.from(document.querySelectorAll('[data-room]'));
-        const match = seats.find(s => s.getAttribute('data-room') === value);
-        if (match) {
-          match.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          match.style.backgroundColor = '#fffacd';
-          setTimeout(() => (match.style.backgroundColor = ''), 1500);
-        } else {
-          searchHint.textContent = `Habitación "${value}" no encontrada`;
-        }
-      }
+  // Event: Logout
+  logoutBtn.addEventListener('click', () => {
+    const confirm = window.confirm('¿Estás seguro de que deseas cerrar sesión?');
+    if (confirm) {
+      localStorage.clear();
+      location.href = './index.html';
     }
   });
 
@@ -325,10 +525,36 @@ async function init() {
 
     openQRScanner(
       (qrData) => {
-        roomSearchInput.value = qrData;
-        state.searchQuery = qrData;
-        searchHint.textContent = `Escaneado: "${qrData}"`;
-        render();
+        // Buscar la habitación y hacer scroll
+        const room = state.allRooms.find(r => String(r.number) === String(qrData) || String(r.id) === String(qrData));
+
+        if (room) {
+          // Limpiar filtros para mostrar todas
+          state.currentFilter = 'all';
+          const floor = extractFloorFromRoom(room.number);
+          state.selectedFloor = floor;
+
+          loadAndRender();
+
+          // Hacer scroll después de renderizar
+          setTimeout(() => {
+            const cards = Array.from(document.querySelectorAll('.room-card'));
+            const targetCard = cards.find(c => {
+              const numberEl = c.querySelector('.room-number');
+              return numberEl && (numberEl.textContent === String(room.number) || numberEl.textContent === String(room.id));
+            });
+
+            if (targetCard) {
+              targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              targetCard.style.boxShadow = '0 0 0 4px var(--color-primary)';
+              setTimeout(() => {
+                targetCard.style.boxShadow = '';
+              }, 2000);
+            }
+          }, 300);
+        } else {
+          alert(`No se encontró la habitación "${qrData}"`);
+        }
       },
       () => {
         console.log('Escaneo cancelado');
@@ -339,12 +565,10 @@ async function init() {
   // Deshabilitar botón QR si no hay cámara trasera
   if (state.rearCameraAvailable === false) {
     scanQrBtn.disabled = true;
-    scanQrBtn.classList.add('disabled');
-    scanQrBtn.title = 'Requiere cámara trasera';
   }
 
-  // Renderizar vista inicial
-  await render();
+  // Cargar y renderizar vista inicial
+  await loadAndRender();
 }
 
 init();
