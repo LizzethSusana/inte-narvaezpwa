@@ -1,5 +1,7 @@
 // api.js - wrapper para llamadas al servidor
-const API_BASE = import.meta.env.VITE_API_URL;
+import { API_BASE_URL } from './utils/constants.js';
+
+const API_BASE = API_BASE_URL;
 
 // =====================
 // UTILIDADES
