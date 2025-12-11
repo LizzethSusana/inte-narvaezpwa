@@ -21,9 +21,10 @@ async function bootstrap() {
   // 🔄 SOLO sincronizamos maids si hay internet
   if (navigator.onLine) {
     try {
-      const resp = await fetch("/api/maids");
+      const resp = await fetch(`${API_BASE_URL}/user`);
       if (resp.ok) {
-        const maids = await resp.json();
+        const data = await resp.json();
+        const maids = data.data || [];
         for (const m of maids) await put("maids", m);
         console.log("Maids sincronizadas:", maids.length);
       }
