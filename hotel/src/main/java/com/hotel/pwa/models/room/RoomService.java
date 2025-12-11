@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -105,6 +106,45 @@ public class RoomService {
         }catch (Exception e){
             e.printStackTrace();
             return new APIResponse("No se pudo eliminar la Habitacion", true, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional(rollbackFor = {SQLException.class, Exception.class})
+    public APIResponse saveBatch(List<Room> rooms){
+        try {
+            if (rooms == null || rooms.isEmpty()) {
+                return new APIResponse("No se proporcionaron habitaciones para crear", true, HttpStatus.BAD_REQUEST);
+            }
+            
+            List<String> errors = new ArrayList<>();
+            List<Room> roomsToSave = new ArrayList<>();
+            
+            // Validar cada habitación
+            for (Room room : rooms) {
+                // Validar que no exista otra habitación con el mismo número
+                Room existingRoom = roomRepository.findByNumber(room.getNumber()).orElse(null);
+                if (existingRoom != null) {
+                    errors.add("La habitación " + room.getNumber() + " ya existe");
+                } else {
+                    roomsToSave.add(room);
+                }
+            }
+            
+            // Guardar todas las habitaciones válidas
+            if (!roomsToSave.isEmpty()) {
+                roomRepository.saveAll(roomsToSave);
+            }
+            
+            // Preparar respuesta
+            String message = roomsToSave.size() + " habitaciones creadas exitosamente";
+            if (!errors.isEmpty()) {
+                message += ". " + errors.size() + " habitaciones ya existían";
+            }
+            
+            return new APIResponse(message, false, HttpStatus.CREATED);
+        }catch (Exception e){
+            e.printStackTrace();
+            return new APIResponse("No se pudo registrar las habitaciones", true, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
    }

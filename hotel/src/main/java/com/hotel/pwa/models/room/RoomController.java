@@ -35,6 +35,12 @@ public class RoomController {
         return new ResponseEntity<>(response, response.getStatus());
     }
 
+    @PostMapping("/batch")
+    public ResponseEntity<APIResponse> saveBatch(@RequestBody List<Room> rooms){
+        APIResponse response = roomService.saveBatch(rooms);
+        return new ResponseEntity<>(response, response.getStatus());
+    }
+
     @PutMapping("")
     public ResponseEntity<APIResponse> update(@RequestBody Room payload){
         APIResponse response = roomService.update(payload);

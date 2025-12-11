@@ -2,12 +2,12 @@
 // MÓDULO DE HABITACIONES
 // =====================
 
-import { getAll, put, del } from '../../idb.js'
+import { getAll, put, del, get } from '../../idb.js'
 import { ITEMS_PER_PAGE, ROOM_STATUS } from '../shared/constants.js'
 import { getStatusKey, padRoom } from '../shared/utils.js'
 import { confirmAction, showModal, hideModal, getModal } from '../shared/modal.js'
 import { openRoomEditModal, openRoomAddModal } from './rooms-modal.js'
-import { deleteRoom, createRoomAssignment, createRoom, getRooms } from '../../api.js'
+import { deleteRoom, createRoomAssignment, createRoom, getRooms, createRoomsBatch } from '../../api.js'
 
 let roomsPage = 0
 
@@ -359,8 +359,10 @@ export async function ensureRoomsFromLayout(floors, roomsPerFloor) {
   }
   
   const existingNumbers = new Set(allRoomsMap.keys())
-  let created = 0
-
+  
+  // Recolectar todas las habitaciones que necesitan crearse
+  const roomsToCreate = []
+  
   for (let f = 1; f <= floors; f++) {
     for (let n = 1; n <= roomsPerFloor; n++) {
       const number = `${f}-${padRoom(n)}`
@@ -370,37 +372,72 @@ export async function ensureRoomsFromLayout(floors, roomsPerFloor) {
         continue
       }
 
-      let roomId = null
-      if (navigator.onLine) {
-        try {
-          const resp = await createRoom({ number, status: 'disponible' })
-          roomId = resp?.data?.id || null
-          
-          // Si se creó en backend, obtener el ID real
-          if (!roomId) {
-            const allRooms = await getRooms().catch(() => [])
-            const found = allRooms.find((r) => r.number === number)
-            roomId = found?.id || null
-          }
-        } catch (err) {
-          console.warn('No se pudo crear en backend, se guardará solo local:', err)
+      roomsToCreate.push({
+        number,
+        status: 'disponible'
+      })
+    }
+  }
+
+  let created = 0
+
+  // Si hay habitaciones para crear y hay conexión, crearlas en lote
+  if (roomsToCreate.length > 0 && navigator.onLine) {
+    try {
+      console.log(`Creando ${roomsToCreate.length} habitaciones en lote...`)
+      const resp = await createRoomsBatch(roomsToCreate)
+      console.log('Respuesta del batch:', resp)
+      
+      // Obtener las habitaciones actualizadas del backend
+      const updatedRooms = await getRooms().catch(() => [])
+      
+      // Guardar en IndexedDB las nuevas habitaciones
+      for (const roomData of roomsToCreate) {
+        const found = updatedRooms.find((r) => r.number === roomData.number)
+        if (found) {
+          await put('rooms', {
+            id: found.id,
+            number: found.number,
+            status: found.status,
+            maid: null,
+            rented: false,
+          })
+          created++
         }
       }
-
-      // Solo guardar localmente si no existe
-      const localExists = await get('rooms', roomId || number).catch(() => null)
-      if (!localExists) {
-        await put('rooms', {
-          id: roomId || number,
-          number,
-          status: 'disponible',
-          maid: null,
-          rented: false,
-        })
-        created++
+    } catch (err) {
+      console.warn('No se pudo crear en lote en el backend, creando individualmente:', err)
+      
+      // Fallback: crear una por una si falla el batch
+      for (const roomData of roomsToCreate) {
+        try {
+          const resp = await createRoom(roomData)
+          const roomId = resp?.data?.id || null
+          
+          await put('rooms', {
+            id: roomId || roomData.number,
+            number: roomData.number,
+            status: roomData.status,
+            maid: null,
+            rented: false,
+          })
+          created++
+        } catch (singleErr) {
+          console.warn(`No se pudo crear habitación ${roomData.number}:`, singleErr)
+        }
       }
-
-      existingNumbers.add(number)
+    }
+  } else if (roomsToCreate.length > 0) {
+    // Si no hay conexión, guardar solo localmente
+    for (const roomData of roomsToCreate) {
+      await put('rooms', {
+        id: roomData.number,
+        number: roomData.number,
+        status: roomData.status,
+        maid: null,
+        rented: false,
+      })
+      created++
     }
   }
   

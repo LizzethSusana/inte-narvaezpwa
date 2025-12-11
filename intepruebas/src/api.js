@@ -113,6 +113,24 @@ export async function createRoom(roomData) {
 }
 
 /**
+ * Crea múltiples habitaciones en una sola petición
+ * @param {Array<Object>} roomsData - Array de { number, status }
+ * @returns {Promise<Object>}
+ */
+export async function createRoomsBatch(roomsData) {
+  try {
+    const data = await fetchAPI("/rooms/batch", {
+      method: "POST",
+      body: JSON.stringify(roomsData),
+    });
+    return data;
+  } catch (error) {
+    console.error("Error al crear habitaciones en lote:", error);
+    throw error;
+  }
+}
+
+/**
  * Actualiza una habitación existente
  * @param {Object} roomData - { id, number, status }
  * @returns {Promise<Object>}
