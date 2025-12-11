@@ -20,26 +20,32 @@
 <header class="topbar">
     <div class="topbar-left">
         <h1>Recepción</h1>
+                <button class="btn-menu-toggle" id="menuToggle">
+            <i class="bi bi-list"></i>
+        </button>
     </div>
-    <nav class="topbar-nav">
-        <button class="nav-item" data-section="rooms">
-            <i class="bi bi-door-closed"></i>
-            <span>Habitaciones</span>
-        </button>
-        <button class="nav-item" data-section="maids">
-            <i class="bi bi-people"></i>
-            <span>Camareras</span>
-        </button>
-        <button class="nav-item" data-section="reports">
-            <i class="bi bi-file-text"></i>
-            <span>Reportes</span>
-        </button>
-    </nav>
-    <div class="topbar-right">
-        <a href="./index.html" class="btn-logout">
-            <i class="bi bi-box-arrow-right"></i>
-            <span>Cerrar sesión</span>
-        </a>
+    
+        <div class="topbar-menu-wrapper" id="topbarMenuWrapper">
+        <nav class="topbar-nav">
+            <button class="nav-item" data-section="rooms">
+                <i class="bi bi-door-closed"></i>
+                <span>Habitaciones</span>
+            </button>
+            <button class="nav-item" data-section="maids">
+                <i class="bi bi-people"></i>
+                <span>Camareras</span>
+            </button>
+            <button class="nav-item" data-section="reports">
+                <i class="bi bi-file-text"></i>
+                <span>Reportes</span>
+            </button>
+        </nav>
+        <div class="topbar-right">
+            <a href="./index.html" class="btn-logout">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Cerrar sesión</span>
+            </a>
+        </div>
     </div>
 </header>
 

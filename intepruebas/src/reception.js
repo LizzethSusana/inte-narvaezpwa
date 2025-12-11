@@ -41,10 +41,26 @@ const layoutStatus = document.getElementById('layoutStatus')
 const navItems = document.querySelectorAll('.nav-item')
 const searchRoomsInput = document.getElementById('searchRooms')
 const clearSearchBtn = document.getElementById('clearSearchRooms')
+const menuToggle = document.getElementById('menuToggle') // El botón de hamburguesa
+const topbarMenuWrapper = document.getElementById('topbarMenuWrapper') // El contenedor a abrir/cerrar
 
 // Inicializar modal
 initModal(modal)
+if (menuToggle && topbarMenuWrapper) {
+  // Alternar la clase 'open' para mostrar/ocultar el menú
+  menuToggle.addEventListener('click', () => {
+    topbarMenuWrapper.classList.toggle('open')
+  })
 
+  // Cerrar el menú después de hacer clic en un elemento de navegación
+  navItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      if (topbarMenuWrapper.classList.contains('open')) {
+        topbarMenuWrapper.classList.remove('open')
+      }
+    })
+  })
+}
 // =====================
 // BÚSQUEDA DE HABITACIONES
 // =====================
