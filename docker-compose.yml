@@ -42,8 +42,8 @@ services:
 
 networks:
   pwa-net:
-    external: true
+    driver: bridge
 
 volumes:
   pwa-data:
-    external: true
+    driver: local
