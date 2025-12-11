@@ -3,7 +3,7 @@
 // =====================
 
 import { getAll, put, del, get } from '../../idb.js'
-import { ITEMS_PER_PAGE, ROOM_STATUS } from '../shared/constants.js'
+import { ITEMS_PER_PAGE, ROOM_STATUS, roomStatusToAPI, roomStatusFromAPI } from '../shared/constants.js'
 import { getStatusKey, padRoom } from '../shared/utils.js'
 import { confirmAction, showModal, hideModal, getModal } from '../shared/modal.js'
 import { openRoomEditModal, openRoomAddModal } from './rooms-modal.js'
@@ -392,7 +392,7 @@ export async function ensureRoomsFromLayout(floors, roomsPerFloor) {
 
       roomsToCreate.push({
         number,
-        status: 'disponible'
+        status: roomStatusToAPI('limpia')  // Convertir a formato API (MAYÚSCULAS)
       })
     }
   }
