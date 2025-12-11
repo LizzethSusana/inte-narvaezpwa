@@ -66,3 +66,4 @@ export const CAMERA_CONFIG = {
   IMAGE_FORMAT: 'image/jpeg',
   IMAGE_QUALITY: 0.9
 };
+

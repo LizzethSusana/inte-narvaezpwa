@@ -1,6 +1,6 @@
-import { openDB } from "./idb.js";
 import { API_BASE_URL } from './utils/constants.js';
-// =====================================================
+
+
 async function bootstrap() {
   // Registrar/Desregistrar service worker según entorno
   if ("serviceWorker" in navigator) {

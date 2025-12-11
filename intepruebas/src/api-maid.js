@@ -1,7 +1,10 @@
 // api-maid.js - endpoints específicos para camareras
-import { API_BASE_URL } from './utils/constants.js';
-// =====================================================
+
+import { API_BASE_URL } from '../utils/constants.js';
+
 const API_BASE = API_BASE_URL;
+
+
 
 function getAuthToken() {
   return localStorage.getItem("authToken");

@@ -3,12 +3,12 @@
 // =====================
 
 import { getAll, put } from '../../idb.js'
-import { ROOM_STATUS } from '../shared/constants.js'
+import { ROOM_STATUS, roomStatusToAPI, roomStatusFromAPI } from '../shared/constants.js'
 import { showModal, hideModal, getModal } from '../shared/modal.js'
-import { 
-  createRoom, 
-  updateRoom, 
-  createRoomAssignment, 
+import {
+  createRoom,
+  updateRoom,
+  createRoomAssignment,
   getUsers,
   getRooms,
 } from '../../api.js'
@@ -61,9 +61,9 @@ export async function openRoomAddModal() {
         <input id="newRoomNumber" type="text" required placeholder="Ej: 101" />
         <label>Estado</label>
         <select id="newRoomStatus">
-          <option value="disponible">Disponible</option>
+          <option value="limpia">Disponible</option>
           <option value="ocupada">Ocupada</option>
-          <option value="limpieza">Sucia</option>
+          <option value="sucia">Sucia</option>
         </select>
         <label>Asignar camarera (opcional)</label>
         <select id="newRoomMaid">
@@ -92,9 +92,9 @@ export async function openRoomAddModal() {
         // 1. Crear la habitación
         const roomData = {
           number: number,
-          status: status || 'disponible'
+          status: roomStatusToAPI(status || 'limpia')  // Convertir a formato API
         };
-        
+
         const result = await createRoom(roomData);
 
         // Obtener id de la habitación (el backend no lo devuelve en data)
@@ -113,11 +113,11 @@ export async function openRoomAddModal() {
           });
         }
 
-        // 3. Guardar en IndexedDB para uso offline
+        // 3. Guardar en IndexedDB para uso offline (con estado en minúsculas)
         await put('rooms', {
           id: roomId || number,
           number: number,
-          status: status,
+          status: status,  // Ya está en minúsculas del select
           maid: maidId || null
         });
 
@@ -185,9 +185,10 @@ export async function openRoomEditModal(room) {
         <input id="editRoomNumber" type="text" value="${room.number || ''}" required />
         <label>Estado</label>
         <select id="editRoomStatus">
-          <option value="disponible">Disponible</option>
+          <option value="limpia">Disponible</option>
           <option value="ocupada">Ocupada</option>
-          <option value="limpieza">Sucia</option>
+          <option value="sucia">Sucia</option>
+          <option value="bloqueada">Bloqueada</option>
         </select>
         <label>Asignar camarera (opcional)</label>
         <select id="editRoomMaid">
@@ -201,7 +202,8 @@ export async function openRoomEditModal(room) {
       </div>`;
 
     const statusEl = document.getElementById('editRoomStatus');
-    if (statusEl) statusEl.value = room.status || 'disponible';
+    // El status en IndexedDB ya está en minúsculas, así que se selecciona directamente
+    if (statusEl) statusEl.value = room.status || 'limpia';
 
     const maidEl = document.getElementById('editRoomMaid');
     if (maidEl) maidEl.value = room.maid ? String(room.maid) : '';
@@ -235,10 +237,10 @@ export async function openRoomEditModal(room) {
         const roomData = {
           id: room.id,
           number: newNumber,
-          status: newStatus,
+          status: roomStatusToAPI(newStatus),  // Convertir a formato API (MAYÚSCULAS)
           userId: userId
         };
-        
+
         console.log('Datos a enviar al backend:', roomData);
         await updateRoom(roomData);
         
@@ -250,11 +252,11 @@ export async function openRoomEditModal(room) {
           });
         }
 
-        // 3. Actualizar en IndexedDB
+        // 3. Actualizar en IndexedDB (con estado en minúsculas)
         await put('rooms', {
           ...room,
           number: newNumber,
-          status: newStatus,
+          status: newStatus,  // Ya está en minúsculas del select
           maid: newMaid
         });
 

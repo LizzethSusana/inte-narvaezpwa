@@ -5,6 +5,7 @@
 import { getModal, hideModal } from '../shared/modal.js'
 import { toBase64 } from '../shared/utils.js'
 import { put } from '../../idb.js'
+import { roomStatusToAPI } from '../shared/constants.js'
 
 /**
  * Muestra el modal para crear un reporte (siniestro)
@@ -70,7 +71,8 @@ export async function openReportModal(room, maids) {
       createdBy: selectedMaid || 'recepcion',
     }
 
-    room.status = 'Bloqueada'
+    // Cambiar estado de la habitación a bloqueada (en minúsculas para IndexedDB)
+    room.status = 'bloqueada'
     await put('rooms', room)
     await put('reports', report)
 

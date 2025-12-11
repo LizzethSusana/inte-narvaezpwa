@@ -378,3 +378,73 @@ export async function getReports() {
     throw error;
   }
 }
+
+/**
+ * Actualiza un reporte (principalmente el campo 'active')
+ * Usa multipart/form-data según API
+ * @param {Object} reportData - { id, title, description, user_id, room_id, active, photo1?, photo2?, photo3? }
+ * @returns {Promise<Object>}
+ */
+export async function updateReport(reportData) {
+  try {
+    const token = getAuthToken();
+    const headers = {};
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    // Crear FormData para enviar con multipart/form-data
+    const formData = new FormData();
+
+    // Campos obligatorios
+    if (reportData.id) formData.append('id', reportData.id);
+    if (reportData.title) formData.append('title', reportData.title);
+    if (reportData.description) formData.append('description', reportData.description);
+    if (reportData.user_id) formData.append('user_id', reportData.user_id);
+    if (reportData.room_id) formData.append('room_id', reportData.room_id);
+
+    // Campo 'active' (boolean) - lo más importante para cambiar estado
+    if (reportData.active !== undefined) {
+      formData.append('active', reportData.active);
+    }
+
+    // Fotos opcionales (File objects)
+    if (reportData.photo1) formData.append('photo1', reportData.photo1);
+    if (reportData.photo2) formData.append('photo2', reportData.photo2);
+    if (reportData.photo3) formData.append('photo3', reportData.photo3);
+
+    const response = await fetch(`${API_BASE}/reports`, {
+      method: "PUT",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Network error");
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error al actualizar reporte:", error);
+    throw error;
+  }
+}
+
+/**
+ * Elimina un reporte por ID
+ * @param {number} id - ID del reporte
+ * @returns {Promise<Object>}
+ */
+export async function deleteReport(id) {
+  try {
+    const data = await fetchAPI('/reports', {
+      method: 'DELETE',
+      body: JSON.stringify({ id })
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error al eliminar reporte ${id}:`, error);
+    throw error;
+  }
+}
