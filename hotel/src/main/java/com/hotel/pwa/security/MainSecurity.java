@@ -71,6 +71,9 @@ public class MainSecurity {
                         .requestMatchers(HttpMethod.PUT, "/api/reports/**")
                         .hasRole("RECEPTION")
 
+                        .requestMatchers(HttpMethod.DELETE, "/api/reports/**")
+                        .hasRole("RECEPTION")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
