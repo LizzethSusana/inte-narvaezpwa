@@ -309,6 +309,24 @@ export async function getUserById(id) {
   }
 }
 
+/**
+ * Elimina un usuario por ID
+ * @param {number} id - ID del usuario
+ * @returns {Promise<Object>}
+ */
+export async function deleteUser(id) {
+  try {
+    const data = await fetchAPI(`/user`, {
+      method: 'DELETE',
+      body: JSON.stringify({ id })
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error al eliminar usuario ${id}:`, error);
+    throw error;
+  }
+}
+
 // =====================
 // REPORTS API
 // =====================
