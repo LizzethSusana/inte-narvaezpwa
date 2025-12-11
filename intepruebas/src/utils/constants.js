@@ -2,6 +2,13 @@
 // CONSTANTES GLOBALES
 // =====================
 
+/**
+ * URL base de la API
+ * En producción usa la IP del servidor EC2
+ * En desarrollo puedes cambiar a http://localhost:8081/api
+ */
+export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || "http://98.89.206.54:8081/api";
+
 export const ITEMS_PER_PAGE = 8; // habitaciones por página
 export const MAIDS_PER_PAGE = 6; // camareras por página
 export const REPORTS_PER_PAGE = 6; // reportes por página

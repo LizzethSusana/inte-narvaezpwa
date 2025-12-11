@@ -2,8 +2,10 @@
 // SERVICIO API PARA OPERACIONES DE CAMARERA
 // =====================================================
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8081/api";
+import { API_BASE_URL } from '../utils/constants.js';
 
+const API_BASE = API_BASE_URL;
+//
 /**
  * Obtiene el token de autenticación del localStorage
  * @returns {string|null}
