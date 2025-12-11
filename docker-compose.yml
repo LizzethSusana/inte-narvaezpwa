@@ -1,0 +1,49 @@
+services:
+  database:
+    image: mysql:8
+    container_name: db-pwa
+    environment:
+      MYSQL_ROOT_PASSWORD: michifus7
+      MYSQL_DATABASE: hotel_cleaning
+    ports:
+      - "3307:3306"
+    networks:
+      - pwa-net
+    volumes:
+      - pwa-data:/var/lib/mysql
+
+  frontend:
+    image: client:pwa-v1
+    container_name: fe-pwa
+    build:
+      context: ./intepruebas
+    ports:
+      - "80:80"
+    networks:
+      - pwa-net
+
+  backend:
+    image: services:pwa-v1
+    container_name: be-pwa
+    build:
+      context: ./hotel
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/hotel_cleaning?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: michifus7
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SERVER_PORT: 8080
+      SECRET_KEY: MyVerySecureHotelApplicationSecretKey2024WithAtLeast32Characters
+    ports:
+      - "8081:8080"
+    networks:
+      - pwa-net
+
+networks:
+  pwa-net:
+    external: true
+
+volumes:
+  pwa-data:
+    external: true
