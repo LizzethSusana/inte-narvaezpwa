@@ -321,17 +321,23 @@ Authorization: Bearer {token}
     {
       "id": 1,
       "number": "1-01",
-      "status": "disponible"
+      "status": "LIMPIA",
+      "lastModifiedById": 5,
+      "lastModifiedByName": "María García"
     },
     {
       "id": 2,
       "number": "1-02",
-      "status": "limpieza"
+      "status": "SUCIA",
+      "lastModifiedById": null,
+      "lastModifiedByName": null
     },
     {
       "id": 3,
       "number": "2-01",
-      "status": "ocupada"
+      "status": "DESHABILITADA",
+      "lastModifiedById": 1,
+      "lastModifiedByName": "Recepción"
     }
   ],
   "error": false,
@@ -340,9 +346,15 @@ Authorization: Bearer {token}
 ```
 
 **Estados de habitación:**
-- `disponible` - Habitación limpia y lista
-- `ocupada` - Habitación ocupada por huésped
-- `limpieza` - Habitación sucia, necesita limpieza
+- `LIMPIA` / `DISPONIBLE` - Habitación limpia y lista
+- `SUCIA` - Habitación necesita limpieza
+- `EN_LIMPIEZA` - En proceso de limpieza
+- `DESHABILITADA` - Bloqueada (por siniestro u otro motivo)
+- `OCUPADA` - Ocupada por huésped
+
+**Campo `lastModifiedBy`:**
+- `lastModifiedById` y `lastModifiedByName` muestran quién realizó el último cambio de estado
+- Puede ser `null` si no se ha registrado ningún cambio con tracking
 
 ---
 
@@ -365,7 +377,9 @@ Authorization: Bearer {token}
   "data": {
     "id": 1,
     "number": "1-01",
-    "status": "disponible"
+    "status": "LIMPIA",
+    "lastModifiedById": 2,
+    "lastModifiedByName": "María García"
   },
   "error": false,
   "status": "OK"
@@ -386,7 +400,7 @@ Content-Type: application/json
 
 **Request Body:**
 ```json
-{
+{LIMPIA
   "number": "3-05",
   "status": "disponible"
 }
@@ -427,15 +441,15 @@ Content-Type: application/json
 [
   {
     "number": "3-01",
-    "status": "disponible"
+    "status": "LIMPIA"
   },
   {
     "number": "3-02",
-    "status": "disponible"
+    "status": "LIMPIA"
   },
   {
     "number": "3-03",
-    "status": "disponible"
+    "status": "LIMPIA"
   }
 ]
 ```
@@ -475,9 +489,21 @@ Content-Type: application/json
 {
   "id": 1,
   "number": "1-01",
-  "status": "limpieza"
+  "status": "LIMPIA",
+  "userId": 5
 }
 ```
+
+**Campos:**
+- `id` (Long, requerido) - ID de la habitación a actualizar
+- `number` (String, requerido) - Número de la habitación
+- `status` (String, requerido) - Estado de la habitación
+- `userId` (Long, opcional) - ID del usuario que realiza el cambio (para tracking)
+
+**Estados disponibles:**
+- `LIMPIA` o `DISPONIBLE` - Habitación limpia y lista para usar
+- `SUCIA` - Habitación necesita limpieza
+- `DESHABILITADA` - Habitación bloqueada (por ocupada u otro motivo)
 
 **Response 200 - Success:**
 ```json
@@ -487,6 +513,12 @@ Content-Type: application/json
   "status": "OK"
 }
 ```
+
+**Notas importantes:**
+- ✅ **Cambios manuales independientes:** El estado se puede cambiar manualmente en cualquier momento, independiente de los cambios automáticos por reportes
+- ✅ **Tracking de cambios:** Si se proporciona `userId`, se registra quién realizó el cambio (visible en el campo `lastModifiedBy` al consultar la habitación)
+- ✅ **Permisos:** Recepción puede cambiar el estado a cualquier valor, incluyendo habilitar habitaciones bloqueadas por siniestro
+- ⚠️ **Reportes activos:** Cambiar manualmente el estado NO modifica el status del reporte asociado. Si existe un reporte activo (`active: true`), se recomienda resolver el reporte cambiando su `active` a `false`
 
 ---
 
@@ -704,6 +736,19 @@ Content-Type: application/json
 
 ## 📸 Reportes
 
+### 🔔 Comportamiento del campo `active`
+
+Los reportes tienen un campo `active` que controla automáticamente el estado de la habitación:
+
+| Active | Estado del Reporte | Estado de Habitación | Descripción |
+|--------|-------------------|----------------------|-------------|
+| `true` | Reporte activo | **DESHABILITADA** | Siniestro activo, habitación bloqueada para uso |
+| `false` | Reporte resuelto | **SUCIA** | Siniestro resuelto, habitación lista para limpieza |
+
+**Importante:** Al crear o actualizar un reporte, el estado de la habitación se actualiza automáticamente según el valor de `active`.
+
+---
+
 ### Obtener todos los reportes
 
 **GET** `/api/reports`
@@ -722,7 +767,8 @@ Authorization: Bearer {token}
       "id": 1,
       "title": "Fuga de agua en baño",
       "description": "Se detectó una fuga de agua en el lavabo del baño",
-      "photo1": "report_1_photo1_1733875200000.jpg",
+      "active": true,
+      "photo1": "/api/reports/image/report_1_photo1_1733875200000.jpg",
       "photo2": null,
       "photo3": null,
       "user": {
@@ -733,7 +779,7 @@ Authorization: Bearer {token}
       "room": {
         "id": 1,
         "number": "1-01",
-        "status": "limpieza"
+        "status": "DESHABILITADA"
       }
     }
   ],
@@ -764,8 +810,9 @@ Authorization: Bearer {token}
     "id": 1,
     "title": "Fuga de agua en baño",
     "description": "Se detectó una fuga de agua en el lavabo del baño",
-    "photo1": "report_1_photo1_1733875200000.jpg",
-    "photo2": "report_1_photo2_1733875200000.jpg",
+    "active": true,
+    "photo1": "/api/reports/image/report_1_photo1_1733875200000.jpg",
+    "photo2": "/api/reports/image/report_1_photo2_1733875200000.jpg",
     "photo3": null,
     "user": {
       "id": 2,
@@ -775,7 +822,7 @@ Authorization: Bearer {token}
     "room": {
       "id": 1,
       "number": "1-01",
-      "status": "limpieza"
+      "status": "DESHABILITADA"
     }
   },
   "error": false,
@@ -805,6 +852,7 @@ Content-Type: multipart/form-data
 | `description` | String | Sí | Descripción detallada |
 | `user_id` | Long | Sí | ID del usuario que crea el reporte |
 | `room_id` | Long | Sí | ID de la habitación |
+| `active` | Boolean | No | `true` = Siniestro activo (habitación DESHABILITADA), `false` = Resuelto (habitación SUCIA). Default: `true` |
 | `photo1` | File | No | Imagen 1 (JPG, PNG) |
 | `photo2` | File | No | Imagen 2 (JPG, PNG) |
 | `photo3` | File | No | Imagen 3 (JPG, PNG) |
@@ -817,6 +865,7 @@ curl -X POST http://localhost:8081/api/reports \
   -F "description=Fuga detectada en el baño" \
   -F "user_id=2" \
   -F "room_id=1" \
+  -F "active=true" \
   -F "photo1=@/path/to/image1.jpg" \
   -F "photo2=@/path/to/image2.jpg"
 ```
@@ -826,8 +875,7 @@ curl -X POST http://localhost:8081/api/reports \
 const formData = new FormData();
 formData.append('title', 'Fuga de agua');
 formData.append('description', 'Fuga detectada en el baño');
-formData.append('user_id', '2');
-formData.append('room_id', '1');
+formData.append('active', 'true'); // true = bloquea habitación, false = marca como sucia
 formData.append('photo1', file1); // File object
 formData.append('photo2', file2); // File object
 
@@ -843,9 +891,15 @@ fetch('http://localhost:8081/api/reports', {
 **Response 201 - Success:**
 ```json
 {
-  "message": "Reporte creado exitosamente",
+  "message": "Reporte registrado correctamente",
   "error": false,
   "status": "CREATED"
+}
+```
+
+**Nota:** Al crear el reporte, el estado de la habitación se actualiza automáticamente:
+- Si `active=true` → Habitación cambia a **DESHABILITADA** (bloqueada por siniestro)
+- Si `active=false` → Habitación cambia a **SUCIA** (siniestro resuelto, pendiente limpieza)status": "CREATED"
 }
 ```
 
@@ -876,11 +930,7 @@ Content-Type: multipart/form-data
 
 | Campo | Tipo | Requerido | Descripción |
 |-------|------|-----------|-------------|
-| `id` | Long | Sí | ID del reporte a actualizar |
-| `title` | String | Sí | Título del reporte |
-| `description` | String | Sí | Descripción detallada |
-| `user_id` | Long | Sí | ID del usuario |
-| `room_id` | Long | Sí | ID de la habitación |
+| `active` | Boolean | No | `true` = Siniestro activo (habitación DESHABILITADA), `false` = Resuelto (habitación SUCIA) |
 | `photo1` | File | No | Nueva imagen 1 (reemplaza la anterior) |
 | `photo2` | File | No | Nueva imagen 2 (reemplaza la anterior) |
 | `photo3` | File | No | Nueva imagen 3 (reemplaza la anterior) |
@@ -890,16 +940,26 @@ Content-Type: multipart/form-data
 curl -X PUT http://localhost:8081/api/reports \
   -H "Authorization: Bearer {token}" \
   -F "id=1" \
-  -F "title=Fuga de agua - Actualizado" \
+  -F "title=Fuga de agua - Reparado" \
   -F "description=Fuga reparada exitosamente" \
   -F "user_id=2" \
   -F "room_id=1" \
+  -F "active=false" \
   -F "photo1=@/path/to/new_image1.jpg"
 ```
 
 **Response 200 - Success:**
 ```json
 {
+  "message": "Reporte actualizado correctamente",
+  "error": false,
+  "status": "OK"
+}
+```
+
+**Nota:** Si cambias el valor de `active`, el estado de la habitación se actualiza automáticamente:
+- Cambiar a `active=false` → Habitación cambia a **SUCIA** (reporte resuelto)
+- Cambiar a `active=true` → Habitación cambia a **DESHABILITADA** (reactivar siniestro)
   "message": "Reporte actualizado exitosamente",
   "error": false,
   "status": "OK"
@@ -1110,3 +1170,158 @@ java -jar target/hotel-0.0.1-SNAPSHOT.jar
 Para dudas o soporte, contactar al equipo de desarrollo.
 
 **Última actualización:** 10 de diciembre de 2025
+
+# Actualización API - Tracking de Usuario en Cambios de Habitación
+
+## Cambios Implementados
+
+### 1. Modelo Room
+Se agregó un campo `lastModifiedBy` que almacena la referencia al usuario que realizó la última modificación:
+- Relación `@ManyToOne` con `BeanUser`
+- Configurado con `FetchType.LAZY` para optimizar consultas
+- **NO tiene cascade**, lo que permite eliminar habitaciones sin afectar a los usuarios
+
+### 2. DTO de Respuesta (RoomResponseDTO)
+Ahora incluye información del usuario que modificó la habitación:
+```json
+{
+  "id": 1,
+  "number": "101",
+  "status": "LIMPIA",
+  "lastModifiedById": 5,
+  "lastModifiedByName": "María García"
+}
+```
+
+### 3. DTO de Actualización (UpdateRoomDTO)
+Nuevo DTO para actualizar habitaciones:
+```json
+{
+  "id": 1,
+  "number": "101",
+  "status": "LIMPIA",
+  "userId": 5
+}
+```
+
+## Endpoints Actualizados
+
+### PUT /api/rooms
+**Request Body:**
+```json
+{
+  "id": 1,
+  "number": "101",
+  "status": "LIMPIA",
+  "userId": 5
+}
+```
+
+**Campos:**
+- `id` (requerido): ID de la habitación a actualizar
+- `number` (requerido): Número de la habitación
+- `status` (requerido): Estado de la habitación (LIMPIA, SUCIA, EN_LIMPIEZA, DESHABILITADA, etc.)
+- `userId` (opcional): ID del usuario que está realizando el cambio
+
+**Response:**
+```json
+{
+  "message": "Operación exitosa",
+  "data": null,
+  "error": false,
+  "status": "OK"
+}
+```
+
+### GET /api/rooms
+**Response:**
+```json
+{
+  "message": "Operación exitosa",
+  "data": [
+    {
+      "id": 1,
+      "number": "101",
+      "status": "LIMPIA",
+      "lastModifiedById": 5,
+      "lastModifiedByName": "María García"
+    }
+  ],
+  "error": false,
+  "status": "OK"
+}
+```
+
+### GET /api/rooms/{id}
+**Response:**
+```json
+{
+  "message": "Operación exitosa",
+  "data": {
+    "id": 1,
+    "number": "101",
+    "status": "LIMPIA",
+    "lastModifiedById": 5,
+    "lastModifiedByName": "María García"
+  },
+  "error": false,
+  "status": "OK"
+}
+```
+
+## Consideraciones Importantes
+
+### 1. Eliminación de Habitaciones
+✅ **Puedes eliminar habitaciones libremente** sin problemas de foreign keys:
+- La relación `lastModifiedBy` NO tiene cascade hacia el usuario
+- Solo se eliminará la referencia en la habitación
+- El usuario permanecerá intacto en la base de datos
+
+### 2. Migración de Datos
+Al implementar estos cambios, la columna `last_modified_by` se creará automáticamente en la base de datos:
+- Habitaciones existentes tendrán `null` en este campo
+- El frontend debe manejar valores `null` en `lastModifiedById` y `lastModifiedByName`
+
+### 3. Frontend
+Ejemplo de código para mostrar la información:
+```javascript
+// Al mostrar la habitación
+const displayModifiedBy = (room) => {
+  if (room.lastModifiedByName) {
+    return `Última modificación: ${room.lastModifiedByName}`;
+  }
+  return 'Sin información de modificación';
+};
+
+// Al actualizar una habitación
+const updateRoom = async (roomId, newStatus, userId) => {
+  const response = await fetch(`${API_URL}/rooms`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      id: roomId,
+      number: roomNumber, // del estado actual
+      status: newStatus,
+      userId: userId // ID del usuario logueado
+    })
+  });
+  
+  return response.json();
+};
+```
+
+## Validaciones
+
+### Backend valida:
+1. ✅ Habitación existe antes de actualizar
+2. ✅ Número de habitación no esté duplicado
+3. ✅ Usuario existe si se proporciona `userId`
+4. ✅ No permite eliminar habitación con referencias que tengan cascade
+
+### Códigos de Error:
+- `404`: Habitación o usuario no encontrado
+- `400`: Número de habitación duplicado
+- `500`: Error interno del servidor
