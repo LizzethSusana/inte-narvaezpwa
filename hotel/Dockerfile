@@ -1,11 +1,27 @@
-FROM maven:3.9.9-eclipse-temurin-21
+# Etapa de construcción
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
+# Copiar package.json y package-lock.json
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm i
+
+# Copiar el código fuente
 COPY . .
 
-RUN mvn clean package -DskipTests && cp target/*.jar app.jar
+# Compilar la aplicación
+RUN npm run build
 
-EXPOSE 8080
+# Etapa de producción
+FROM nginx:alpine
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Limpiar el directorio por defecto de nginx
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copiar los archivos compilados desde la etapa de build
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
