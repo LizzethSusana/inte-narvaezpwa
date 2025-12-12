@@ -1,4 +1,5 @@
-import { openDB } from "./idb.js";
+import { API_BASE_URL } from './utils/constants.js';
+
 
 async function bootstrap() {
   // Registrar/Desregistrar service worker según entorno
@@ -147,7 +148,7 @@ async function bootstrap() {
     };
 
     try {
-      const API_BASE = import.meta.env.VITE_API_URL;
+      const API_BASE = API_BASE_URL;
       
       const response = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",

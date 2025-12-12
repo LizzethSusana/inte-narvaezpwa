@@ -9,7 +9,8 @@ import { ensureRoomsFromLayout } from './modules/rooms/rooms.js'
 import { openRoomAddModal, openRoomEditModal } from './modules/rooms/rooms-modal.js'
 import { openMaidAddModal, openMaidEditModal } from './modules/maids/maids-modal.js'
 import { showReportDetailModal } from './modules/reports/reports-modal.js'
-import { getRooms, getUsers, getRoomAssignments, getReports, deleteRoom, deleteUser, updateRoomAssignment, createRoomAssignment, deleteRoomAssignment } from './api.js'
+import { getRooms, getUsers, getRoomAssignments, getReports, deleteRoom, deleteUser, updateRoomAssignment, createRoomAssignment, deleteRoomAssignment, updateReport, deleteReport } from './api.js'
+import { reportStatusToAPI, reportStatusFromAPI, roomStatusFromAPI } from './modules/shared/constants.js'
 
 // =====================
 // DESREGISTRAR SW EN DESARROLLO
@@ -340,7 +341,7 @@ async function syncDataFromBackend() {
       await put('rooms', {
         id: room.id,
         number: room.number,
-        status: room.status,
+        status: roomStatusFromAPI(room.status),  // Convertir de API (MAYÚSCULAS) a frontend (minúsculas)
         maid: existingLocal?.maid || null,
         rented: existingLocal?.rented || false,
       })
@@ -397,7 +398,8 @@ async function syncDataFromBackend() {
         photo3: report.photo3,
         room: report.room,
         user: report.user,
-        status: 'Pendiente',
+        active: report.active,  // Guardar campo active del API
+        status: reportStatusFromAPI(report.active),  // Convertir active (boolean) a status (string)
         createdAt: new Date().toISOString(),
         _synced: true
       })
@@ -694,8 +696,11 @@ async function assignMaidToRoom(roomId, maidId) {
           // Actualizar asignación existente
           await updateRoomAssignment(existingAssignment.id, { userId: maidId, roomId })
         } else {
-          // Crear nueva asignación
-          await createRoomAssignment({ userId: maidId, roomId })
+          // Crear nueva asignación con formato correcto del API
+          await createRoomAssignment({
+            room: { id: roomId },
+            user: { id: parseInt(maidId, 10) }
+          })
         }
       } else {
         // Eliminar asignación si existe
@@ -1128,7 +1133,15 @@ function renderReports() {
     const roomNumber = report.room?.number || report.roomId || report.room_id || '—'
     const maidName = report.user?.fullname || report.user?.username || '—'
     const title = report.title || report.subject || '—'
-    const status = report.status || 'Pendiente'
+
+    // Normalizar status: convertir a minúsculas y luego capitalizar para el select
+    let statusValue = report.status || 'pendiente'
+    // Si viene de active (boolean), convertir
+    if (typeof report.active === 'boolean') {
+      statusValue = reportStatusFromAPI(report.active)
+    }
+    // Capitalizar para coincidir con las opciones del select
+    const statusCapitalized = statusValue.charAt(0).toUpperCase() + statusValue.slice(1).toLowerCase()
 
     tr.innerHTML = `
       <td>${date}</td>
@@ -1137,14 +1150,17 @@ function renderReports() {
       <td>${title}</td>
       <td>
         <select class="report-status-select" data-report-id="${report._id || report.id}">
-          <option value="Pendiente" ${status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-          <option value="Resuelto" ${status === 'Resuelto' || status === 'Habilitado' ? 'selected' : ''}>Resuelto</option>
+          <option value="Pendiente" ${statusCapitalized === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+          <option value="Resuelto" ${statusCapitalized === 'Resuelto' ? 'selected' : ''}>Resuelto</option>
         </select>
       </td>
       <td>
         <div class="action-btns">
           <button class="action-btn btn-view" data-report-id="${report._id}" title="Ver más">
             <i class="bi bi-eye"></i>
+          </button>
+          <button class="action-btn btn-delete" data-report-id="${report._id}" title="Eliminar">
+            <i class="bi bi-trash"></i>
           </button>
         </div>
       </td>
@@ -1160,7 +1176,15 @@ function renderReports() {
     const roomNumber = report.room?.number || report.roomId || report.room_id || '—'
     const maidName = report.user?.fullname || report.user?.username || '—'
     const title = report.title || report.subject || '—'
-    const status = report.status || 'Pendiente'
+
+    // Normalizar status: convertir a minúsculas y luego capitalizar para el select
+    let statusValue = report.status || 'pendiente'
+    // Si viene de active (boolean), convertir
+    if (typeof report.active === 'boolean') {
+      statusValue = reportStatusFromAPI(report.active)
+    }
+    // Capitalizar para coincidir con las opciones del select
+    const statusCapitalized = statusValue.charAt(0).toUpperCase() + statusValue.slice(1).toLowerCase()
 
     const card = document.createElement('div')
     card.className = 'data-card'
@@ -1168,7 +1192,7 @@ function renderReports() {
       <div class="card-header">
         <div class="card-title">${title}</div>
         <button class="card-menu-btn" data-report-id="${report._id}">
-          <i class="bi bi-eye"></i>
+          <i class="bi bi-three-dots-vertical"></i>
         </button>
       </div>
       <div class="card-body">
@@ -1191,8 +1215,8 @@ function renderReports() {
           <div class="card-info-row">
             <span class="card-label">Estado</span>
             <select class="report-status-select" data-report-id="${report._id || report.id}">
-              <option value="Pendiente" ${status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-              <option value="Resuelto" ${status === 'Resuelto' || status === 'Habilitado' ? 'selected' : ''}>Resuelto</option>
+              <option value="Pendiente" ${statusCapitalized === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+              <option value="Resuelto" ${statusCapitalized === 'Resuelto' ? 'selected' : ''}>Resuelto</option>
             </select>
           </div>
         </div>
@@ -1211,12 +1235,23 @@ function renderReports() {
     })
   })
 
-  // Event listeners para ver más (mobile)
+  // Event listeners para eliminar (tabla)
+  document.querySelectorAll('.action-btn.btn-delete[data-report-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const reportId = btn.dataset.reportId
+      const report = state.allReports.find(r => (r._id || r.id) === reportId)
+      if (report && confirm('¿Estás seguro de que deseas eliminar este reporte?')) {
+        await deleteReportById(reportId)
+      }
+    })
+  })
+
+  // Event listeners para menú (mobile)
   document.querySelectorAll('.card-menu-btn[data-report-id]').forEach(btn => {
     btn.addEventListener('click', () => {
       const reportId = btn.dataset.reportId
       const report = state.allReports.find(r => r._id === reportId)
-      if (report) showReportDetailModal(report, state.allMaids)
+      if (report) showReportCardMenu(report, btn)
     })
   })
 
@@ -1231,6 +1266,81 @@ function renderReports() {
 }
 
 /**
+ * Elimina un reporte
+ */
+async function deleteReportById(reportId) {
+  try {
+    // Eliminar de IndexedDB
+    await del('reports', reportId)
+
+    // Eliminar del backend si hay conexión
+    if (navigator.onLine) {
+      try {
+        await deleteReport(reportId)
+        console.log(`Reporte ${reportId} eliminado del backend`)
+      } catch (apiError) {
+        console.warn('Error al eliminar del backend:', apiError)
+      }
+    }
+
+    // Actualizar estado local
+    state.allReports = state.allReports.filter(r => (r._id || r.id) !== reportId)
+
+    // Re-renderizar
+    renderReports()
+    alert('Reporte eliminado exitosamente')
+  } catch (error) {
+    console.error('Error al eliminar reporte:', error)
+    alert('No se pudo eliminar el reporte')
+  }
+}
+
+/**
+ * Muestra menú de opciones para card de reporte (mobile)
+ */
+function showReportCardMenu(report, btnElement) {
+  const rect = btnElement.getBoundingClientRect()
+
+  const menu = document.createElement('div')
+  menu.style.position = 'fixed'
+  menu.style.top = `${rect.bottom + 5}px`
+  menu.style.right = '20px'
+  menu.style.background = 'white'
+  menu.style.borderRadius = '12px'
+  menu.style.boxShadow = 'var(--shadow-lg)'
+  menu.style.zIndex = '1000'
+  menu.style.minWidth = '150px'
+  menu.innerHTML = `
+    <button style="display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;font-size:15px;font-weight:600;" id="menuView">
+      <i class="bi bi-eye" style="color:var(--color-info);"></i> Ver más
+    </button>
+    <button style="display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;border:none;background:transparent;cursor:pointer;font-size:15px;font-weight:600;" id="menuDelete">
+      <i class="bi bi-trash" style="color:var(--color-danger);"></i> Eliminar
+    </button>
+  `
+
+  document.body.appendChild(menu)
+
+  const cleanup = () => menu.remove()
+
+  document.getElementById('menuView').onclick = () => {
+    cleanup()
+    showReportDetailModal(report, state.allMaids)
+  }
+
+  document.getElementById('menuDelete').onclick = async () => {
+    cleanup()
+    if (confirm('¿Estás seguro de que deseas eliminar este reporte?')) {
+      await deleteReportById(report._id || report.id)
+    }
+  }
+
+  setTimeout(() => {
+    document.addEventListener('click', cleanup, { once: true })
+  }, 100)
+}
+
+/**
  * Actualiza el estado de un reporte
  */
 async function updateReportStatus(reportId, newStatus) {
@@ -1241,13 +1351,38 @@ async function updateReportStatus(reportId, newStatus) {
       return
     }
 
+    // Convertir el estado frontend ('pendiente'/'resuelto') a formato API (boolean 'active')
+    const activeValue = reportStatusToAPI(newStatus)
+
+    // Actualizar en el backend si hay conexión
+    if (navigator.onLine) {
+      try {
+        // La API requiere: id, title, description, user_id, room_id, active
+        await updateReport({
+          id: report.id || report._id,
+          title: report.title || report.subject || 'Reporte',
+          description: report.description || '',
+          user_id: report.user?.id || report.user_id || report.maidId,
+          room_id: report.room?.id || report.roomId || report.room_id,
+          active: activeValue
+        })
+        console.log(`Reporte ${reportId} actualizado en backend: active=${activeValue}`)
+      } catch (apiError) {
+        console.warn('Error al actualizar en backend, continuando con IndexedDB:', apiError)
+      }
+    }
+
     // Actualizar en el estado local
     report.status = newStatus
+    report.active = activeValue
 
     // Actualizar en IndexedDB
     await put('reports', report)
 
     console.log(`Estado del reporte ${reportId} actualizado a ${newStatus}`)
+
+    // Recargar para reflejar cambios
+    location.reload()
   } catch (error) {
     console.error('Error al actualizar estado del reporte:', error)
     alert('No se pudo actualizar el estado del reporte')

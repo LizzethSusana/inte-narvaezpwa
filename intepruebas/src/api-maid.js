@@ -1,6 +1,12 @@
 // api-maid.js - endpoints específicos para camareras
 
-const API_BASE = import.meta.env.VITE_API_URL;
+import { API_BASE_URL } from "./utils/constants";
+
+
+
+const API_BASE = API_BASE_URL;
+
+
 
 function getAuthToken() {
   return localStorage.getItem("authToken");
