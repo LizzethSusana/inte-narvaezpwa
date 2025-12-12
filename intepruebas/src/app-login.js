@@ -1,6 +1,23 @@
 import { openDB, getAll, put } from "./idb.js";
 import { API_BASE_URL } from './utils/constants.js';
 
+/**
+ * Decodifica un token JWT y extrae su payload
+ * @param {string} token - Token JWT
+ * @returns {Object|null} - Payload del token o null si hay error
+ */
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch (e) {
+    console.error("Error al decodificar JWT:", e);
+    return null;
+  }
+}
+
 
 async function bootstrap() {
   // Registrar/Desregistrar service worker según entorno
@@ -26,6 +43,7 @@ async function bootstrap() {
         const users = await resp.json();
         for (const u of users) await put("user", u);
         console.log("Users sincronizadas:", users.length);
+     
       }
     } catch (err) {
       console.warn("No se pudo sincronizar users:", err);
@@ -99,52 +117,87 @@ async function bootstrap() {
         return;
       }
 
-      // Login exitoso - guardar token
+      // Login exitoso - guardar token y decodificarlo
       if (data.data) {
-        localStorage.setItem("authToken", data.data);
+        const token = data.data;
+        localStorage.setItem("authToken", token);
         localStorage.setItem("username", username);
-        
-        // Obtener datos del usuario para verificar su rol
-        try {
-          const userResponse = await fetch(`${API_BASE}/user`, {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${data.data}`,
-              "Content-Type": "application/json"
-            }
+
+        console.log("✅ Login exitoso, token guardado");
+
+        // Decodificar el JWT para obtener información del usuario
+        const payload = decodeJWT(token);
+
+        if (payload) {
+          console.log("🔍 Token decodificado:", payload);
+          console.log("👤 Usuario:", payload.sub);
+          console.log("🔐 Authorities:", payload.authorities);
+
+          // Determinar el rol del usuario
+          const authorities = payload.authorities || [];
+          const isMaid = authorities.some(auth => {
+            const role = auth.authority || auth;
+            return role === "ROLE_MAID" || role === "MAID";
           });
 
-          const userData = await userResponse.json();
-          
-          if (userData.data && Array.isArray(userData.data)) {
-            // Buscar el usuario actual por username
-            const currentUser = userData.data.find(u => u.username === username);
-            
-            if (currentUser) {
-              // Guardar información del usuario
-              localStorage.setItem("userId", currentUser.id);
-              localStorage.setItem("userRole", currentUser.rol?.id || "");
-              
-              // Redirigir según el rol
-              if (currentUser.rol?.id === 2) {
-                // MAID (Camarera) - id 2
-                const encoded = encodeURIComponent(currentUser.id);
-                location.href = `./maid.html?user=${encoded}`;
-              } else {
-                // RECEPTION (Recepcionista) - id 1 o cualquier otro
-                location.href = "./reception.html";
-              }
-              return;
-            }
+          const isReception = authorities.some(auth => {
+            const role = auth.authority || auth;
+            return role === "ROLE_RECEPTION" || role === "RECEPTION";
+          });
+
+          // Guardar rol
+          if (isMaid) {
+            localStorage.setItem("userRole", "2"); // MAID = 2
+          } else if (isReception) {
+            localStorage.setItem("userRole", "1"); // RECEPTION = 1
           }
-          
-          // Si no se encontró el usuario, redirigir a reception por defecto
-          location.href = "./reception.html";
-          
-        } catch (userError) {
-          console.error("Error al obtener datos del usuario:", userError);
-          // En caso de error, redirigir a reception por defecto
-          location.href = "./reception.html";
+
+          // Redirigir según el rol
+          if (isMaid) {
+            // Para MAIDs necesitamos el userId, intentar obtenerlo
+            console.log("🧹 Usuario es MAID, obteniendo ID de usuario...");
+
+            try {
+              const userResponse = await fetch(`${API_BASE}/user`, {
+                method: "GET",
+                headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "Content-Type": "application/json"
+                }
+              });
+
+              if (userResponse.ok) {
+                const userData = await userResponse.json();
+                const currentUser = userData.data?.find(u => u.username === username);
+
+                if (currentUser && currentUser.id) {
+                  localStorage.setItem("userId", currentUser.id);
+                  console.log("✅ userId obtenido:", currentUser.id);
+                  const encoded = encodeURIComponent(currentUser.id);
+                  window.location.href = `/maid.html?user=${encoded}`;
+                  return;
+                }
+              }
+
+              // Fallback: usar username como identificador
+              console.warn("⚠️ No se pudo obtener userId, usando username");
+              const encoded = encodeURIComponent(username);
+              window.location.href = `/maid.html?user=${encoded}`;
+
+            } catch (err) {
+              console.error("❌ Error obteniendo userId:", err);
+              // Fallback: usar username
+              const encoded = encodeURIComponent(username);
+              window.location.href = `/maid.html?user=${encoded}`;
+            }
+          } else {
+            // RECEPTION no necesita userId en la URL
+            console.log("🏨 Redirigiendo a interfaz de recepción...");
+            window.location.href = "/reception.html";
+          }
+        } else {
+          console.error("❌ No se pudo decodificar el token");
+          showError("Error al procesar la sesión");
         }
       } else {
         showError("Error al iniciar sesión");
