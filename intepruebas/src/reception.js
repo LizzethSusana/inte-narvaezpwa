@@ -11,18 +11,10 @@ import { openMaidAddModal, openMaidEditModal } from './modules/maids/maids-modal
 import { showReportDetailModal } from './modules/reports/reports-modal.js'
 import { getRooms, getUsers, getRoomAssignments, getReports, deleteRoom, deleteUser, updateRoomAssignment, createRoomAssignment, deleteRoomAssignment, updateReport, deleteReport } from './api.js'
 import { reportStatusToAPI, reportStatusFromAPI, roomStatusFromAPI } from './modules/shared/constants.js'
-
-// =====================
-// DESREGISTRAR SW EN DESARROLLO
-// =====================
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  if (import.meta && import.meta.env && import.meta.env.DEV) {
-    navigator.serviceWorker
-      .getRegistrations()
-      .then((rs) => rs.forEach((r) => r.unregister()))
-      .catch(() => {})
-  }
-}
+import { setupConnectionListeners, showOfflineMessage } from './utils/offline-ui.js'
+import { runFullCleanup } from './utils/idb-cleanup.js'
+import { saveMaidAssignmentOffline } from './offline-sync.js'
+import { registerServiceWorker, debugServiceWorker } from './utils/sw-register.js'
 
 // =====================
 // ESTADO GLOBAL
@@ -683,14 +675,15 @@ async function assignMaidToRoom(roomId, maidId) {
     const room = state.allRooms.find(r => r.id === roomId)
     if (!room) return
 
+    // Guardar en IndexedDB local inmediatamente
     room.maid = maidId
     await put('rooms', room)
 
+    // Buscar si ya existe una asignación
+    const existingAssignment = state.allAssignments.find(a => a.room?.id === roomId)
+
     // Actualizar en backend si hay conexión
     if (navigator.onLine) {
-      // Buscar si ya existe una asignación
-      const existingAssignment = state.allAssignments.find(a => a.room?.id === roomId)
-
       if (maidId) {
         if (existingAssignment) {
           // Actualizar asignación existente
@@ -711,6 +704,17 @@ async function assignMaidToRoom(roomId, maidId) {
 
       await syncDataFromBackend()
       await loadAllData()
+    } else {
+      // Sin conexión: guardar en outbox para sincronizar después
+      console.log('[Reception] Sin conexión, guardando asignación en outbox');
+      await saveMaidAssignmentOffline({
+        room_id: roomId,
+        maid_id: maidId, // null si se está desasignando
+        assignment_id: existingAssignment?.id || null
+      });
+
+      // Mostrar notificación al usuario
+      alert('Sin conexión. La asignación se sincronizará cuando se restablezca la conexión.');
     }
 
     renderRooms()
@@ -1457,6 +1461,14 @@ if (filterReportStatus) {
 
 ;(async () => {
   try {
+    // Registrar service worker (solo en producción)
+    await registerServiceWorker();
+
+    // Debug del estado del SW (útil para desarrollo)
+    if (import.meta.env.DEV) {
+      await debugServiceWorker();
+    }
+
     // Verificar autenticación
     const authToken = localStorage.getItem('authToken')
     if (!authToken) {
@@ -1464,6 +1476,49 @@ if (filterReportStatus) {
       alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.')
       window.location.href = './index.html'
       return
+    }
+
+    // Configurar listeners de conexión
+    setupConnectionListeners(
+      async () => {
+        // Cuando se recupera la conexión
+        console.log('[Reception] Conexión recuperada, sincronizando datos...');
+
+        // PRIMERO: Sincronizar operaciones pendientes del outbox
+        try {
+          const { flushOutbox } = await import('./offline-sync.js');
+          console.log('[Reception] Sincronizando outbox...');
+          const result = await flushOutbox();
+          if (result.success > 0) {
+            console.log(`[Reception] ✅ ${result.success} operaciones sincronizadas exitosamente`);
+          }
+          if (result.failed > 0) {
+            console.warn(`[Reception] ⚠️ ${result.failed} operaciones fallaron al sincronizar`);
+          }
+        } catch (e) {
+          console.error('[Reception] Error al sincronizar outbox:', e);
+        }
+
+        // DESPUÉS: Obtener datos actualizados del backend
+        await syncDataFromBackend();
+        await loadAllData();
+
+        // Actualizar vista actual
+        if (state.currentSection === 'rooms') renderRooms();
+        else if (state.currentSection === 'maids') renderMaids();
+        else if (state.currentSection === 'reports') renderReports();
+      },
+      () => {
+        // Cuando se pierde la conexión
+        console.log('[Reception] Conexión perdida, usando datos locales');
+      }
+    );
+
+    // Limpiar datos duplicados y obsoletos
+    try {
+      await runFullCleanup();
+    } catch (e) {
+      console.error('[Reception] Error al limpiar IndexedDB:', e);
     }
 
     // Cargar configuración y datos

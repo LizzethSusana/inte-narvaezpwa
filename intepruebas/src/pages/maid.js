@@ -11,13 +11,9 @@ import { hasRearCamera } from '$/utils/camera.js';
 import { ROOM_STATUS } from '$/utils/constants.js';
 import { saveRoomStatusOffline, setupOnlineListener, flushOutbox } from '../offline-sync.js';
 import { roomStatusToAPI } from '../modules/shared/constants.js';
-
-// En desarrollo, desregistrar SW para evitar caché de estilos
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  if (import.meta && import.meta.env && import.meta.env.DEV) {
-    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
-  }
-}
+import { setupConnectionListeners, showOfflineMessage } from '../utils/offline-ui.js';
+import { runFullCleanup } from '../utils/idb-cleanup.js';
+import { registerServiceWorker, debugServiceWorker } from '../utils/sw-register.js';
 
 // =====================
 // ESTADO DE LA APLICACIÓN
@@ -490,6 +486,15 @@ async function loadAndRender() {
     rooms = (await getAll('rooms').catch(() => [])) || [];
   }
 
+  // Si no hay datos y no hay conexión, mostrar mensaje
+  if (rooms.length === 0 && !navigator.onLine) {
+    state.allRooms = [];
+    renderFilterGroup();
+    floorGrid.innerHTML = '';
+    showOfflineMessage(roomsList, 'Sin conexión - No hay habitaciones disponibles offline');
+    return;
+  }
+
   state.allRooms = rooms;
 
   renderFilterGroup();
@@ -502,6 +507,14 @@ async function loadAndRender() {
 // =====================
 
 async function init() {
+  // Registrar service worker (solo en producción)
+  await registerServiceWorker();
+
+  // Debug del estado del SW (útil para desarrollo)
+  if (import.meta.env.DEV) {
+    await debugServiceWorker();
+  }
+
   // Verificar autenticación
   const authToken = localStorage.getItem('authToken');
   if (!authToken) {
@@ -525,6 +538,13 @@ async function init() {
 
   // Abrir IndexedDB
   await openDB();
+
+  // Limpiar datos duplicados y obsoletos
+  try {
+    await runFullCleanup();
+  } catch (e) {
+    console.error('[Maid] Error al limpiar IndexedDB:', e);
+  }
 
   // Detectar cámara trasera ANTES de cualquier renderizado
   try {
@@ -606,6 +626,38 @@ async function init() {
 
   // Configurar listeners para sincronización automática al recuperar conexión
   setupOnlineListener();
+
+  // Configurar listeners para mostrar estado de conexión
+  setupConnectionListeners(
+    async () => {
+      // Cuando se recupera la conexión
+      console.log('[Maid] Conexión recuperada, sincronizando datos...');
+
+      // PRIMERO: Sincronizar operaciones pendientes del outbox
+      try {
+        console.log('[Maid] Sincronizando outbox...');
+        const result = await flushOutbox();
+        if (result.success > 0) {
+          console.log(`[Maid] ✅ ${result.success} operaciones sincronizadas exitosamente`);
+        }
+        if (result.failed > 0) {
+          console.warn(`[Maid] ⚠️ ${result.failed} operaciones fallaron al sincronizar`);
+        }
+      } catch (e) {
+        console.error('[Maid] Error al sincronizar outbox:', e);
+      }
+
+      // DESPUÉS: Obtener datos actualizados del backend
+      await syncFromBackend();
+
+      // Recargar y renderizar
+      await loadAndRender();
+    },
+    () => {
+      // Cuando se pierde la conexión
+      console.log('[Maid] Conexión perdida, usando datos locales');
+    }
+  );
 
   // Intentar sincronizar operaciones pendientes si hay conexión
   if (navigator.onLine) {

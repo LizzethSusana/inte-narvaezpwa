@@ -217,7 +217,8 @@ function getImageUrl(fileName) {
 
   // Construir URL del API para obtener la imagen
   const API_BASE =
-    import.meta.env.VITE_API_IMAGES_URL || 'http://localhost:8081/api'
+    import.meta.env.VITE_API_IMAGES_URL ||
+    'https://drp1k7c3-8081.usw3.devtunnels.ms'
   return `${API_BASE}${fileName}`
 }
 

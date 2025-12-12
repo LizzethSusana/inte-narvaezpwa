@@ -7,11 +7,12 @@
  * En producción usa la IP del servidor EC2
  * En desarrollo puedes cambiar a http://localhost:8081/api
  */
-export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || "http://98.89.206.54:8081/api";
-
-export const ITEMS_PER_PAGE = 8; // habitaciones por página
-export const MAIDS_PER_PAGE = 6; // camareras por página
-export const REPORTS_PER_PAGE = 6; // reportes por página
+export const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) ||
+  'https://drp1k7c3-8081.usw3.devtunnels.ms/api'
+export const ITEMS_PER_PAGE = 8 // habitaciones por página
+export const MAIDS_PER_PAGE = 6 // camareras por página
+export const REPORTS_PER_PAGE = 6 // reportes por página
 
 /**
  * Estados de habitaciones
@@ -23,8 +24,8 @@ export const ROOM_STATUS = {
   AVAILABLE: 'Disponible',
   OCCUPIED: 'Ocupada',
   MAINTENANCE: 'Mantenimiento',
-  CLEANING: 'Limpieza'
-};
+  CLEANING: 'Limpieza',
+}
 
 /**
  * Estados de camarera
@@ -32,8 +33,8 @@ export const ROOM_STATUS = {
 export const MAID_STATUS = {
   AVAILABLE: 'Disponible',
   NOT_AVAILABLE: 'No disponible',
-  BUSY: 'Ocupado'
-};
+  BUSY: 'Ocupado',
+}
 
 /**
  * Claves CSS para estados
@@ -43,8 +44,8 @@ export const STATUS_KEYS = {
   dirty: 'dirty',
   blocked: 'blocked',
   available: 'disponible',
-  unavailable: 'no-disponible'
-};
+  unavailable: 'no-disponible',
+}
 
 /**
  * Filtros de habitaciones para camarera
@@ -54,8 +55,8 @@ export const ROOM_FILTERS = {
   ASSIGNED: 'assigned',
   DIRTY: 'dirty',
   CLEAN: 'clean',
-  BLOCKED: 'blocked'
-};
+  BLOCKED: 'blocked',
+}
 
 /**
  * Configuración de cámara
@@ -64,6 +65,5 @@ export const CAMERA_CONFIG = {
   MAX_PHOTOS: 3,
   FACING_MODE: 'environment', // cámara trasera
   IMAGE_FORMAT: 'image/jpeg',
-  IMAGE_QUALITY: 0.9
-};
-
+  IMAGE_QUALITY: 0.9,
+}

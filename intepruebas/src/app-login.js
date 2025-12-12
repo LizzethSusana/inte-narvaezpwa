@@ -1,18 +1,35 @@
 import { openDB, getAll, put } from "./idb.js";
 import { API_BASE_URL } from './utils/constants.js';
+import { registerServiceWorker, debugServiceWorker } from './utils/sw-register.js';
 
 
 async function bootstrap() {
-  // Registrar/Desregistrar service worker según entorno
-  if ("serviceWorker" in navigator) {
-    // En desarrollo, desregistrar para evitar caché que rompe estilos
-    if (import.meta && import.meta.env && import.meta.env.DEV) {
-      try {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
-      } catch (_) {}
-    } else {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+  // Registrar service worker (solo en producción)
+  await registerServiceWorker();
+
+  // Debug del estado del SW (útil para desarrollo)
+  if (import.meta.env.DEV) {
+    await debugServiceWorker();
+  }
+
+  // Verificar si ya hay sesión activa y redirigir
+  const authToken = localStorage.getItem("authToken");
+  const userRole = localStorage.getItem("userRole");
+  const userId = localStorage.getItem("userId");
+
+  if (authToken && userRole && userId) {
+    console.log('[Login] Sesión activa detectada, redirigiendo...');
+
+    // Redirigir según el rol
+    if (userRole === "2") {
+      // MAID (Camarera) - id 2
+      const encoded = encodeURIComponent(userId);
+      location.href = `./maid.html?user=${encoded}`;
+      return; // Detener ejecución
+    } else if (userRole === "1") {
+      // RECEPTION (Recepcionista) - id 1
+      location.href = "./reception.html";
+      return; // Detener ejecución
     }
   }
 

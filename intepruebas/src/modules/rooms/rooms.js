@@ -158,6 +158,17 @@ function createMaidSelector(room, maids) {
     if (!selected) {
       room.maid = null
       await put('rooms', room)
+
+      // Si no hay conexión, guardar en outbox para desasignar después
+      if (!navigator.onLine && room.id) {
+        const { saveMaidAssignmentOffline } = await import('../../offline-sync.js')
+        await saveMaidAssignmentOffline({
+          room_id: room.id,
+          maid_id: null
+        })
+        alert('Sin conexión. La desasignación se sincronizará cuando se restablezca la conexión.')
+      }
+
       location.reload()
       return
     }
@@ -167,7 +178,7 @@ function createMaidSelector(room, maids) {
       sel.value = room.maid || ''
       return
     }
-    
+
     try {
       // Crear asignación en el backend si hay conexión
       if (navigator.onLine && (room.id || room.number) && selected) {
@@ -175,8 +186,16 @@ function createMaidSelector(room, maids) {
           room: { id: room.id || room.number },
           user: { id: parseInt(selected) }
         })
+      } else if (!navigator.onLine && room.id && selected) {
+        // Sin conexión: guardar en outbox
+        const { saveMaidAssignmentOffline } = await import('../../offline-sync.js')
+        await saveMaidAssignmentOffline({
+          room_id: room.id,
+          maid_id: selected
+        })
+        alert('Sin conexión. La asignación se sincronizará cuando se restablezca la conexión.')
       }
-      
+
       room.maid = selected
       await put('rooms', room)
       location.reload()

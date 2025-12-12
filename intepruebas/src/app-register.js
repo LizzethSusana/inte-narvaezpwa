@@ -11,7 +11,7 @@ async function bootstrap() {
         await Promise.all(regs.map(r => r.unregister()));
       } catch (_) {}
     } else {
-      navigator.serviceWorker.register("./sw.js").catch(() => {});
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }
 
