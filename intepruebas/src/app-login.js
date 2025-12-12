@@ -21,14 +21,14 @@ async function bootstrap() {
   // 🔄 SOLO sincronizamos maids si hay internet
   if (navigator.onLine) {
     try {
-      const resp = await fetch("/api/maids");
+      const resp = await fetch("/api/user");
       if (resp.ok) {
-        const maids = await resp.json();
-        for (const m of maids) await put("maids", m);
-        console.log("Maids sincronizadas:", maids.length);
+        const users = await resp.json();
+        for (const u of users) await put("user", u);
+        console.log("Users sincronizadas:", users.length);
       }
     } catch (err) {
-      console.warn("No se pudo sincronizar maids:", err);
+      console.warn("No se pudo sincronizar users:", err);
     }
   }
 
